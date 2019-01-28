@@ -1,23 +1,15 @@
 {
-  "name": "clientdb.js",
+  "name": "clientdb",
   "version": "1.0.0",
-  "description": "A client-side database",
-  "main": "src/index.js",
+  "description": "Client-side database",
+  "main": "dist/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/hieunc229/clientdb.js.git"
-  },
-  "keywords": [
-    "localStorage",
-    "indexedDB"
-  ],
-  "author": "Ambi Studio",
+  "author": "",
   "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/hieunc229/clientdb.js/issues"
-  },
-  "homepage": "https://github.com/hieunc229/clientdb.js#readme"
+  "devDependencies": {
+    "typescript": "^3.2.4"
+  }
 }
