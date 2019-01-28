@@ -40,8 +40,21 @@ export default class ClientStore {
         data.forEach(item => {
           objStore.add(item);
         });
-        transaction.oncomplete = (ev: any) => resolve(ev);
-        transaction.onerror = (ev: any) => reject(ev);
+        transaction.oncomplete = (ev: any) => {
+          resolve({
+            items: data,
+            changes: {
+              inserted: data.length,
+              updated: 0,
+              removed: 0,
+              unchange: 0
+            }
+          })
+        };
+        transaction.onerror = (ev: any) => reject({
+          items: data,
+          message: ev.message
+        });
       });
     });
   }

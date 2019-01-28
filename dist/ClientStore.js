@@ -21,8 +21,21 @@ class ClientStore {
                 data.forEach(item => {
                     objStore.add(item);
                 });
-                transaction.oncomplete = (ev) => resolve(ev);
-                transaction.onerror = (ev) => reject(ev);
+                transaction.oncomplete = (ev) => {
+                    resolve({
+                        items: data,
+                        changes: {
+                            inserted: data.length,
+                            updated: 0,
+                            removed: 0,
+                            unchange: 0
+                        }
+                    });
+                };
+                transaction.onerror = (ev) => reject({
+                    items: data,
+                    message: ev.message
+                });
             });
         });
     }
