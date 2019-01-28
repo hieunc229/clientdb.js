@@ -1,5 +1,7 @@
 import ClientStore from "./ClientStore";
 
+const defaultName = '__clientdb_default';
+
 type Props = {
   name?: string;
   version?: number;
@@ -8,14 +10,15 @@ type Props = {
   onsuccess?: (event: any) => void;
 };
 
+
 /**
  * Implementation of ClientDB in TypeScript
  */
 export default class ClientDB {
-  options: any;
   db: any;
-  stores: Array<any> = [];
   ref: any;
+  stores: Array<any> = [];
+  options: Props;
 
   /**
    * Initiate ClientDB instance, setup and start indexedDB
@@ -23,7 +26,7 @@ export default class ClientDB {
    * @returns {ClientDB}
    */
   constructor(options: Props) {
-    var name = "__clientdb_default";
+    var name = defaultName;
     var version = 1;
     var onerror = this._handleOpenFail.bind(this);
     var onsuccess = this._handleOpenSuccess.bind(this);
@@ -70,15 +73,26 @@ export default class ClientDB {
    * @returns {void}
    */
   _handleStructureInitiate(ev: any) {
-    var db = ev.target.result;
+
+    if (!ev.target) return;
+
+    var db : IDBDatabase = ev.target.result;
 
     if (this.options.stores) {
       this.options.stores.forEach(
         (store: { name: string; keys: { [key: string]: boolean } }) => {
-          let objStore = db.createObjectStore(store.name, { keyPath: `_id` });
-
+          let objStore: IDBObjectStore;
+          if (!db.objectStoreNames.contains(store.name)) {
+            objStore = db.createObjectStore(store.name, { keyPath: `_id` });
+          } else {
+            objStore = ev.target.transaction.objectStore(store.name);
+          }
+          
           Object.keys(store.keys).forEach((key: string) => {
-            objStore.createIndex(key, key, { unique: store.keys[key] });
+            if (!objStore.indexNames.contains(key)) {
+              objStore.createIndex(key, key, { unique: store.keys[key] });
+            }
+            // TODO: deleteIndex 
           });
         }
       );
@@ -94,8 +108,8 @@ export default class ClientDB {
   _init() {
     let { name, version, onerror, stores } = this.options;
 
-    var request = indexedDB.open(name, version);
-    request.onerror = onerror;
+    var request = indexedDB.open(name || defaultName, version);
+    onerror && (request.onerror = onerror);
     request.onsuccess = this._handleOpenSuccess.bind(this);
     stores &&
       (request.onupgradeneeded = this._handleStructureInitiate.bind(this));
@@ -111,8 +125,8 @@ export default class ClientDB {
   open(callback: (database: IDBDatabase) => any) : void {
     let { name, version, onerror } = this.options;
 
-    var request = indexedDB.open(name, version);
-    request.onerror = onerror;
+    var request = indexedDB.open(name || defaultName, version);
+    onerror && (request.onerror = onerror);
     request.onsuccess = (ev: any) => {
       callback(request.result);
     };
@@ -126,5 +140,14 @@ export default class ClientDB {
    */
   collect(name: string) : ClientStore {
     return new ClientStore(name, this.open.bind(this));
+  }
+
+  /**
+   * Remove database completely
+   * 
+   * @returns {void}
+   */
+  destroy() : void {
+    indexedDB.deleteDatabase(this.options.name || defaultName);
   }
 }

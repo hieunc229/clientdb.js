@@ -10,10 +10,10 @@ declare type Props = {
  * Implementation of ClientDB in TypeScript
  */
 export default class ClientDB {
-    options: any;
     db: any;
-    stores: Array<any>;
     ref: any;
+    stores: Array<any>;
+    options: Props;
     /**
      * Initiate ClientDB instance, setup and start indexedDB
      *
@@ -57,5 +57,11 @@ export default class ClientDB {
      * @returns {ClientStore}
      */
     collect(name: string): ClientStore;
+    /**
+     * Remove database completely
+     *
+     * @returns {void}
+     */
+    destroy(): void;
 }
 export {};
