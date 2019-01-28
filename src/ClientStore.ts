@@ -1,6 +1,19 @@
 import EventSubscriber from "./utils/subscriber";
 import Filter from './Filter';
 
+type IRecord = { [key: string]: any };
+type IError = { property: string, message: string };
+type IResult = {
+  items: Array<IRecord>,
+  error?: Array<IError>,
+  changes?: {
+    inserted: number,
+    deleted: number,
+    updated: number,
+    unchange: number
+  }
+}
+
 export default class ClientStore {
   openDB: (callback: (db: IDBDatabase) => any) => any;
   ref: string;
@@ -15,7 +28,7 @@ export default class ClientStore {
     this.eventManager = new EventSubscriber();
   }
 
-  insert(record: Array<Object> | Object): Promise<any> {
+  insert(record: Array<Object> | Object): Promise<IResult> {
     let data = Array.isArray(record) ? record : [record];
     var _vars = this;
     return new Promise((resolve: Function, reject: Function) => {
@@ -33,7 +46,7 @@ export default class ClientStore {
     });
   }
 
-  remove(record: Array<{}> | Object | string) : Promise<any> {
+  remove(record: Array<{}> | Object | string) : Promise<IResult> {
     let data = Array.isArray(record) ? record : [record];
     let _vars = this;
 
@@ -60,7 +73,7 @@ export default class ClientStore {
     });
   }
 
-  update(id: string, changes: Object) {
+  update(id: string, changes: Object) : Promise<IResult> {
     let _vars = this;
     return new Promise((resolve: Function, reject: Function) => {
       _vars.openDB((db: IDBDatabase) => {

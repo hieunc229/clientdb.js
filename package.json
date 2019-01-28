@@ -1,15 +1,18 @@
 {
   "name": "clientdb.js",
-  "version": "0.1",
-  "description": "Client-side database",
+  "version": "0.1.0",
+  "description": "A Client-Side Database with Minimalistic Interface for IndexedDB (TypeScript supported)",
   "main": "dist/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "tsc"
+    "test": "mocha -r ts-node/register src/*.test.ts",
+    "build": "tsc",
+    "cover": "istanbul cover node_modules/mocha/bin/_mocha tests/*.js - - -R spec",
+    "build-browser": "tsc -m system --outFile browser/ClientDB.js src/*.ts"
   },
-  "author": "",
-  "license": "ISC",
+  "author": "Ambi Studio",
+  "license": "Apache 2.0",
   "devDependencies": {
+    "ts-node": "^8.0.2",
     "typescript": "^3.2.4"
   }
 }

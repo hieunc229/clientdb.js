@@ -69,7 +69,7 @@ class Filter {
                 var items = new Array(results.length);
                 var uniqueCount = 0;
                 results.forEach(item => {
-                    if (seen.indexOf(item.key) == -1) {
+                    if (seen.indexOf(item._id) == -1) {
                         items[uniqueCount] = item;
                         seen[uniqueCount++] = item.key;
                     }
