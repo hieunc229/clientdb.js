@@ -1,0 +1,63 @@
+
+#test_deco {
+    max-width: 600px;
+    width: 100%;
+    margin: auto;
+    font-size: 16px;
+    line-height: 1.8;
+    color: #1f1f1f;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+}
+
+.deco__section div {
+    padding: 1em 0;
+    border-bottom: 1px solid #f5f5f5;
+}
+
+.deco__section .section__title {
+    font-size: 1.2em;
+    font-weight: 500;
+    border-bottom-color: #eaeaea;
+}
+
+.deco__section .deco__desc {
+    display: block;
+    font-size: 12px;
+    color: grey;
+}
+
+#test_deco .deco__passed {
+    color: green;
+}
+
+#test_deco .deco__passed::before {
+    content: "Passed: "
+}
+
+#test_deco .deco__failed {
+    color: red;
+}
+
+#test_deco .deco__failed::before {
+    content: "Failed: "
+}
+
+#test_deco .deco__report {
+    text-align: center;
+    color: white;
+    display: flex;
+    flex-direction: row;
+    padding: 0;
+}
+
+#test_deco .deco__report span {
+    padding: 1em;
+}
+
+#test_deco .bg__pos {
+    background: #4CAF50
+} 
+
+#test_deco .bg__neg {
+    background: red;
+}

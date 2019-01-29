@@ -86,7 +86,7 @@ ClientStore.filter(query: Object) : Promise
 ClientStore.insert(record: Array<Object> | Object) : Promise;
 
 // Update a record in a collection
-ClientStore.update(id: string, changes: Object) : Promise
+ClientStore.update(id: string, changes: Object) : Promise;
 
 // Remove record/s ids from a collection
 ClientStore.remove(ids: Array<string> | string) : Promise;
