@@ -2,3 +2,5 @@ node_modules
 browser
 .tscache
 .cache
+packages
+tests
