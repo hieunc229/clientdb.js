@@ -22,10 +22,16 @@ Follow one of the instructions below to install ClientDB.js to your project
 $ npm install --save clientdb.js
 ```
 
+Then import `ClientDB` into your project
+```js
+import ClientDB from 'clientdb.js';
+```
+
 #### Install as In-browser Javascript Library
 
 ```js
 // replace @x.x.x with current version
+// Available through window.ClientDB or just ClientDB
 <script src="https://unpkg.com/clientdb.js@0.1.4/dist/ClientDB.js"></script>
 ```
 
