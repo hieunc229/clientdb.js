@@ -16,10 +16,11 @@ class ClientStore {
         var _vars = this;
         return new Promise((resolve, reject) => {
             _vars.openDB((db) => {
-                let transaction = db.transaction([_vars.ref], "readwrite");
-                let objStore = transaction.objectStore(_vars.ref);
+                var transaction = db.transaction(_vars.ref, "readwrite");
+                var objStore = transaction.objectStore(_vars.ref);
+                var latestRequest;
                 data.forEach(item => {
-                    objStore.add(item);
+                    latestRequest = objStore.add(item);
                 });
                 transaction.oncomplete = (ev) => {
                     resolve({
@@ -32,10 +33,12 @@ class ClientStore {
                         }
                     });
                 };
-                transaction.onerror = (ev) => reject({
-                    items: data,
-                    message: ev.message
-                });
+                transaction.onerror = (ev) => {
+                    reject({
+                        items: data,
+                        message: latestRequest.error
+                    });
+                };
             });
         });
     }
@@ -101,6 +104,38 @@ class ClientStore {
             queries,
             openDB: this.openDB.bind(this),
             collection: this.ref
+        });
+    }
+    removeAllRecords() {
+        return new Promise((resolve, reject) => {
+            this.openDB(db => {
+                var objStore = db.transaction(this.ref, 'readwrite').objectStore(this.ref);
+                var totalItems = objStore.count();
+                var request = objStore.clear();
+                request.onsuccess = (ev) => {
+                    resolve({
+                        items: [],
+                        changes: {
+                            removed: totalItems,
+                            inserted: 0,
+                            unchange: 0,
+                            update: 0
+                        }
+                    });
+                };
+                request.onerror = (ev) => {
+                    reject({
+                        items: [],
+                        message: request.error,
+                        changes: {
+                            removed: 0,
+                            inserted: 0,
+                            unchange: 0,
+                            update: totalItems
+                        }
+                    });
+                };
+            });
         });
     }
 }

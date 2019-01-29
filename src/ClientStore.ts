@@ -34,11 +34,11 @@ export default class ClientStore {
     return new Promise((resolve: Function, reject: Function) => {
       
       _vars.openDB((db: IDBDatabase) => {
-        let transaction = db.transaction([_vars.ref], "readwrite");
-        let objStore = transaction.objectStore(_vars.ref);
-
+        var transaction = db.transaction(_vars.ref, "readwrite");
+        var objStore = transaction.objectStore(_vars.ref);
+        var latestRequest: IDBRequest;
         data.forEach(item => {
-          objStore.add(item);
+          latestRequest = objStore.add(item);
         });
         transaction.oncomplete = (ev: any) => {
           resolve({
@@ -51,10 +51,12 @@ export default class ClientStore {
             }
           })
         };
-        transaction.onerror = (ev: any) => reject({
-          items: data,
-          message: ev.message
-        });
+        transaction.onerror = (ev: Event) => {
+          reject({
+            items: data,
+            message: latestRequest.error
+          });
+        }
       });
     });
   }
@@ -130,5 +132,41 @@ export default class ClientStore {
         openDB: this.openDB.bind(this), 
         collection: this.ref
       });
+  }
+
+  removeAllRecords() : Promise<IResult> {
+    return new Promise((resolve: Function, reject: Function) => {
+      this.openDB(db => {
+        var objStore = db.transaction(this.ref, 'readwrite').objectStore(this.ref);
+        var totalItems = objStore.count();
+        var request = objStore.clear();
+
+        request.onsuccess = (ev: Event) => {
+          resolve({
+            items: [],
+            changes: {
+              removed: totalItems,
+              inserted: 0,
+              unchange: 0,
+              update: 0
+            }
+          })
+        }
+
+        request.onerror = (ev: Event) => {
+          reject({
+            items: [],
+            message: request.error,
+            changes: {
+              removed: 0,
+              inserted: 0,
+              unchange: 0,
+              update: totalItems
+            }
+          })
+        }
+
+      })
+    });
   }
 }
