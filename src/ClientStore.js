@@ -49,19 +49,34 @@ class ClientStore {
             _vars.openDB((db) => {
                 let transaction = db.transaction([_vars.ref], "readwrite");
                 let objStore = transaction.objectStore(_vars.ref);
-                let id;
+                let id, lastRequest;
                 data.forEach((item) => {
                     if ((id = typeof item == "string" ? item
                         : typeof item == "object" && "_id" in item ? item._id
                             : false)) {
-                        objStore.delete(id);
+                        lastRequest = objStore.delete(id);
                     }
                     else {
                         throw Error(`Unable to delete ${item}`);
                     }
                 });
-                transaction.oncomplete = (ev) => resolve(ev);
-                transaction.onerror = (ev) => reject(ev);
+                transaction.oncomplete = (ev) => {
+                    resolve({
+                        items: [],
+                        changes: {
+                            inserted: 0,
+                            updated: 0,
+                            removed: data.length,
+                            unchange: 0
+                        }
+                    });
+                };
+                transaction.onerror = (ev) => {
+                    reject({
+                        items: data,
+                        message: lastRequest.error
+                    });
+                };
             });
         });
     }

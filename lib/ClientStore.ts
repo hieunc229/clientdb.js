@@ -69,21 +69,36 @@ export default class ClientStore {
       _vars.openDB((db: IDBDatabase) => {
         let transaction = db.transaction([_vars.ref], "readwrite");
         let objStore = transaction.objectStore(_vars.ref);
-        let id;
+        let id, lastRequest: IDBRequest;
 
         data.forEach((item: any) => {
           if ((id = typeof item == "string" ? item
                 : typeof item == "object" && "_id" in item ? item._id
                 : false)
           ) {
-            objStore.delete(id);
+            lastRequest = objStore.delete(id);
           } else {
             throw Error(`Unable to delete ${item}`);
           }
         });
 
-        transaction.oncomplete = (ev: any) => resolve(ev);
-        transaction.onerror = (ev: any) => reject(ev);
+        transaction.oncomplete = (ev: any) => {
+          resolve({
+            items: [],
+            changes: {
+              inserted: 0,
+              updated: 0,
+              removed: data.length,
+              unchange: 0
+            }
+          })
+        };
+        transaction.onerror = (ev: Event) => {
+          reject({
+            items: data,
+            message: lastRequest.error
+          });
+        }
       });
     });
   }

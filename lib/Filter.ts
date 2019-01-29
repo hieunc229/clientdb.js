@@ -126,6 +126,9 @@ export default class Filter {
       function transactionError(err: any) {
         completedTransaction++;
         errors.push(err);
+        if (completedTransaction === maxTransaction) {
+          transactionComplete();
+        }
       }
 
       this.openDB((db: IDBDatabase) => {

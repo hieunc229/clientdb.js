@@ -92,6 +92,9 @@ class Filter {
             function transactionError(err) {
                 completedTransaction++;
                 errors.push(err);
+                if (completedTransaction === maxTransaction) {
+                    transactionComplete();
+                }
             }
             this.openDB((db) => {
                 let objectStore = db
