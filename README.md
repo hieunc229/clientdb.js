@@ -16,13 +16,13 @@ ClientDB.js is a wrapper for IndexedDB with simple APIs, all requests return a p
 ClientDB.js is available as npm module (supported TypeScript) and also works with plain Javascript.
 Follow one of the instructions below to install ClientDB.js to your project
 
-### Install as NPM Module
+#### Install as NPM Module
 
 ```ssh
 $ npm install --save clientdb.js
 ```
 
-### Install as In-browser Javascript Library
+#### Install as In-browser Javascript Library
 
 ```js
 // replace @x.x.x with current version
@@ -31,7 +31,7 @@ $ npm install --save clientdb.js
 
 ## 3. How to use:
 
-### An quick example
+#### Quickstart example
 
 ```js
 var stores = [{
@@ -69,7 +69,7 @@ myDB.collect("Users").insert({
 })
 ```
 
-### APIs
+#### APIs
 
 ```js
 
@@ -96,7 +96,7 @@ ClientStore.removeAllRecords() : Promise
 
 ```
 
-### TODO APIs
+#### TODO APIs
 
 - Add `ClientStore.get(query: Object) : Promise`
 - improve `ClientStore.remove` by using allow using filter
@@ -104,7 +104,7 @@ ClientStore.removeAllRecords() : Promise
 ## 4. Tests
 
 _Note: I found current test libraries are tedious to setup. So I wrote a pretty simple and straight forward
-in-browser test. Async tests are supported but will not be calculated in the final result (at the bottom). It might not suitable for large scale project_
+in-browser test class. Async tests are supported but will not be calculated in the final result at the bottom. (Test class might not suitable for large scale project)_
 
 ### Install dependencies
 
