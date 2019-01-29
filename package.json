@@ -1,13 +1,13 @@
 {
   "name": "clientdb.js",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "A Client-Side Database with Minimalistic Interface for IndexedDB (TypeScript supported)",
   "main": "dist/index.js",
   "scripts": {
     "test": "mocha -r ts-node/register src/*.test.ts",
     "build": "tsc",
     "cover": "istanbul cover node_modules/mocha/bin/_mocha tests/*.js - - -R spec",
-    "build-js": "browserify browser/export.js -p tinyify -o browser-dist/ClientDB.0.1.1.js"
+    "build-js": "browserify browser/export.js -p tinyify -o browser-dist/ClientDB.0.1.2.js"
   },
   "author": "Ambi Studio <https://ambi.studio>",
   "license": "Apache 2.0",
