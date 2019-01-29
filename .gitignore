@@ -1,5 +1,5 @@
-node_modules
 .tscache
 .cache
+node_modules
 packages
 tests

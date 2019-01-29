@@ -1,2 +1,2 @@
-var ClientDB = require('../dist').default;
+var ClientDB = require('../src').default;
 window.ClientDB = ClientDB;
