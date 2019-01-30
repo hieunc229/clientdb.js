@@ -29,6 +29,7 @@ export default class ClientStore {
     filter(queries: {
         [key: string]: any;
     }): Filter;
+    get(key: any): Promise<any>;
     removeAllRecords(): Promise<IResult>;
 }
 export {};

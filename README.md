@@ -104,7 +104,6 @@ ClientStore.removeAllRecords() : Promise
 
 #### TODO APIs
 
-- Add `ClientStore.get(query: Object) : Promise`
 - improve `ClientStore.remove` by using allow using filter
 
 ## 4. Tests
@@ -119,6 +118,11 @@ Before running tests, install `http-server` globally. (More information about [h
 ```ssh
 $  npm install http-server -g
 ```
+
+### Clone project
+
+Clone or download this project to your computer, then navigate to the project
+directory
 
 ### Run test
 
