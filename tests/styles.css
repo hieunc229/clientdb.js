@@ -43,6 +43,17 @@
 }
 
 #test_deco .deco__report {
+    margin: 2em 0;
+}
+
+#test_deco .deco__report_title {
+    margin-bottom: 1em;
+    display: block;
+    font-size: 1.4em;
+    opacity: .8;
+}
+
+#test_deco .deco__report_results {
     text-align: center;
     color: white;
     display: flex;
@@ -50,7 +61,7 @@
     padding: 0;
 }
 
-#test_deco .deco__report span {
+#test_deco .deco__report_results span {
     padding: 1em;
 }
 

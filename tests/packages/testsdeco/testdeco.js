@@ -7,16 +7,57 @@ export default class TestDecor {
 
         var containerSelector = (opts && opts.containerSelector) ? 
             opts.containerSelector : defaultConfig.containerSelector;
+        this._initContainers.bind(this)(containerSelector);
 
-        this.containerEl = document.querySelector(containerSelector);
         this._pass = this._pass.bind(this);
         this._failed = this._failed.bind(this);
         this._assert = this._assert.bind(this);
 
-        this.report = this.report.bind(this);
         this.it = this.it.bind(this);
 
-        this.count = 0;
+        this.passedCount = 0;
+        this.failedCount = 0;
+        this.totalCount = 0;
+    }
+
+    _initContainers(mainContainer) {
+
+        var mainContainerEl = document.querySelector(mainContainer);
+        var resultContainer = createElement("div", {
+            className: "deco__results"
+        });
+        mainContainerEl.appendChild(resultContainer);
+        this.containerEl = resultContainer;
+
+        // Result container
+
+        var passedEl = createElement('span', {
+            className: 'bg__pos',
+            style: `flex: 0; padding: 0`
+        });
+        this.passedEl = passedEl;
+
+        var failedEl = createElement('span', {
+            className: 'bg__neg',
+            style: `flex: 0; padding: 0`
+        });
+        this.failedEl = failedEl;
+
+        var totalEl = createElement('span', {
+            className: 'deco__report_title',
+            innerText: '0 tests'
+        });
+        this.totalEl = totalEl;
+
+        var resultEl = createElement("div", {
+            className: 'deco__report_results',
+            children: [passedEl, failedEl]
+        })
+
+        mainContainerEl.appendChild(createElement("div", {
+            className: 'deco__report',
+            children: [totalEl, resultEl]
+        }));
     }
 
     describe(message, callback) {
@@ -39,14 +80,22 @@ export default class TestDecor {
     }
 
     _assert(condition, message, opts) {
+        this.totalCount++;
+        this.totalEl.innerText = `Total: ${this.totalCount} tests`;
         condition ? this._pass(message, opts) : this._failed(message, opts);
     }
 
     _pass(message, opts) {
+        this.passedCount++;
+        this.passedEl.innerText = `${this.passedCount} passed`;
+        this.passedEl.style = `flex: ${this.passedCount}`;
         this._appendContent(message, 'deco__passed', opts)
     }
 
     _failed(message, opts) {
+        this.failedCount++;
+        this.passedEl.innerText = `${this.failedCount} failed`;
+        this.failedEl.style = `flex: ${this.failedCount}`;
         this._appendContent(message, 'deco__failed', opts)
     }
 
@@ -71,29 +120,5 @@ export default class TestDecor {
 
         container.appendChild(child);
         return child;
-    }
-
-    report() {
-        let totalPassed = this.containerEl.querySelectorAll(".deco__passed").length;
-        let totalFailed = this.containerEl.querySelectorAll(".deco__failed").length;
-        
-        let children = [];
-
-        totalPassed !== 0 && children.push(createElement('span', { 
-            innerText: `${totalPassed} passed`,
-            style: `flex: ${totalPassed}`,
-            className: 'bg__pos'
-        }));
-
-        totalFailed !== 0 && children.push(createElement('span', { 
-            innerText: `${totalFailed} failed`,
-            style: `flex: ${totalFailed}`,
-            className: 'bg__neg'
-        }));
-
-        this.containerEl.appendChild(createElement("div", {
-            className: 'deco__report',
-            children: children
-        }));
     }
 }

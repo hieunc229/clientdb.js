@@ -29,7 +29,7 @@ export default class EventSubscriber {
     if (triggers && triggers.length) {
       triggers.forEach((trigger: any) => {
         if (trigger.callback) {
-          trigger.callback({ changed });
+          trigger.callback(eventName, changed);
         }
       });
     }

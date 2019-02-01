@@ -31,5 +31,9 @@ export default class ClientStore {
     }): Filter;
     get(key: any): Promise<any>;
     removeAllRecords(): Promise<IResult>;
+    /**
+     * Event subscriber
+     */
+    subscribe(eventName: "insert" | "remove" | "update" | "changes" | "removeAll", callback: (event: string, changes: Array<object>) => void): void;
 }
 export {};

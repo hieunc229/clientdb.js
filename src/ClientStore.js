@@ -13,17 +13,17 @@ class ClientStore {
     }
     insert(record) {
         let data = Array.isArray(record) ? record : [record];
-        var _vars = this;
+        var _ = this;
         return new Promise((resolve, reject) => {
-            _vars.openDB((db) => {
-                var transaction = db.transaction(_vars.ref, "readwrite");
-                var objStore = transaction.objectStore(_vars.ref);
+            _.openDB((db) => {
+                var transaction = db.transaction(_.ref, "readwrite");
+                var objStore = transaction.objectStore(_.ref);
                 var latestRequest;
                 data.forEach(item => {
                     latestRequest = objStore.add(item);
                 });
                 transaction.oncomplete = (ev) => {
-                    resolve({
+                    var eventData = {
                         items: data,
                         changes: {
                             inserted: data.length,
@@ -31,7 +31,9 @@ class ClientStore {
                             removed: 0,
                             unchange: 0
                         }
-                    });
+                    };
+                    _.eventManager.fire("insert", eventData);
+                    resolve(eventData);
                 };
                 transaction.onerror = (ev) => {
                     reject({
@@ -44,11 +46,11 @@ class ClientStore {
     }
     remove(record) {
         let data = Array.isArray(record) ? record : [record];
-        let _vars = this;
+        let _ = this;
         return new Promise((resolve, reject) => {
-            _vars.openDB((db) => {
-                let transaction = db.transaction([_vars.ref], "readwrite");
-                let objStore = transaction.objectStore(_vars.ref);
+            _.openDB((db) => {
+                let transaction = db.transaction([_.ref], "readwrite");
+                let objStore = transaction.objectStore(_.ref);
                 let id, lastRequest;
                 data.forEach((item) => {
                     if ((id = typeof item == "string" ? item
@@ -61,7 +63,7 @@ class ClientStore {
                     }
                 });
                 transaction.oncomplete = (ev) => {
-                    resolve({
+                    const eventData = {
                         items: [],
                         changes: {
                             inserted: 0,
@@ -69,7 +71,9 @@ class ClientStore {
                             removed: data.length,
                             unchange: 0
                         }
-                    });
+                    };
+                    _.eventManager.fire("remove", eventData);
+                    resolve(eventData);
                 };
                 transaction.onerror = (ev) => {
                     reject({
@@ -81,11 +85,11 @@ class ClientStore {
         });
     }
     update(id, changes) {
-        let _vars = this;
+        let _ = this;
         return new Promise((resolve, reject) => {
-            _vars.openDB((db) => {
-                let transaction = db.transaction([_vars.ref], "readwrite");
-                let objStore = transaction.objectStore(_vars.ref);
+            _.openDB((db) => {
+                let transaction = db.transaction([_.ref], "readwrite");
+                let objStore = transaction.objectStore(_.ref);
                 let request = objStore.get(id);
                 request.onsuccess = function (event) {
                     // Get the old value that we want to update
@@ -95,7 +99,19 @@ class ClientStore {
                         // Put this updated object back into the database.
                         var requestUpdate = objStore.put(data);
                         requestUpdate.onerror = (ev) => reject(ev);
-                        requestUpdate.onsuccess = (ev) => resolve(ev);
+                        requestUpdate.onsuccess = (ev) => {
+                            var eventData = {
+                                items: [changes],
+                                changes: {
+                                    updated: 1,
+                                    inserted: 0,
+                                    removed: 0,
+                                    unchange: 0
+                                }
+                            };
+                            _.eventManager.fire("update", eventData);
+                            resolve(eventData);
+                        };
                     }
                     else {
                         reject({ message: `Record "${id}" not existed` });
@@ -145,15 +161,17 @@ class ClientStore {
                 var totalItems = objStore.count();
                 var request = objStore.clear();
                 request.onsuccess = (ev) => {
-                    resolve({
+                    var eventData = {
                         items: [],
                         changes: {
-                            removed: totalItems,
+                            removed: objStore.indexNames.length,
                             inserted: 0,
                             unchange: 0,
                             update: 0
                         }
-                    });
+                    };
+                    this.eventManager.fire("remove", eventData);
+                    resolve(eventData);
                 };
                 request.onerror = (ev) => {
                     reject({
@@ -169,6 +187,12 @@ class ClientStore {
                 };
             });
         });
+    }
+    /**
+     * Event subscriber
+     */
+    subscribe(eventName, callback) {
+        this.eventManager.subscribe(eventName, { callback });
     }
 }
 exports.default = ClientStore;

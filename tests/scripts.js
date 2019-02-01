@@ -19,8 +19,37 @@ var myDB = new ClientDB({
 // 2. Get Users collection by its .name specified when initiate ClientDB instance (1)
 var collect = myDB.collect("Users");
 
+deco.describe("Event subscriber (see console logs)", dop => {
+  dop.it("Event fired on insert", ({ assert }) => {
+    collect.subscribe("insert", (eventName, changes) => {
+      console.log(eventName, changes);
+      assert(eventName === "insert");
+    });
+  });
+
+  dop.it("Event fired on update", ({ assert }) => {
+    collect.subscribe("update", (eventName, changes) => {
+      console.log(eventName, changes);
+      assert(eventName === "update");
+    });
+  });
+
+  dop.it("Event fired on remove", ({ assert }) => {
+    collect.subscribe("remove", (eventName, changes) => {
+      console.log(eventName, changes);
+      assert(eventName === "remove");
+    });
+  });
+
+  dop.it("Event fired remove all", ({ assert }) => {
+    collect.subscribe("removeAll", (eventName, changes) => {
+      console.log(eventName, changes);
+      assert(eventName === "removeAll");
+    });
+  });
+});
+
 deco.describe("ClientDB.js in-browser tests", ({ it }) => {
-  
   it("indexedDB is available", ({ assert }) => {
     assert(indexedDB !== undefined);
   });
@@ -41,7 +70,7 @@ deco.describe("ClientDB.js in-browser tests", ({ it }) => {
   });
 });
 
-deco.describe("Insert records", ({ it }) => {
+deco.describe("Insert and update record", ({ it }) => {
   const peterRecord = {
     _id: "peter_griff_" + Date.now(),
     firstName: "Peter",
@@ -65,12 +94,23 @@ deco.describe("Insert records", ({ it }) => {
       .then(res => assert(false, `Inserted: ${res.items.length}`))
       .catch(err => assert(true, err.message));
   });
+
+  it("Update firstName from Peter to Bryan", ({ assert }) => {
+    collect
+      .update(peterRecord._id, {
+        firstName: "Bryan"
+      })
+      .then(({ items }) => {
+        assert(items && Array.isArray(items) && items.length)
+      })
+      .catch(err => assert(false, err.message));
+  });
 });
 
 deco.describe("Query record", dop => {
   dop.it("Filter data with existing value", ({ assert }) => {
     collect
-      .filter({ firstName: "Peter" })
+      .filter({ firstName: "Bryan" })
       .run()
       .then(rs => {
         let items = rs.items;
@@ -99,20 +139,20 @@ deco.describe("Query record", dop => {
 });
 
 deco.describe("Remove record", dop => {
-
   dop.it("Fetch data then remove", ({ assert }) => {
-
-    collect.filter({ firstName: "Peter" }).run()
-    .then(rs => {
-      collect.remove(rs.items[0]._id)
+    collect
+      .filter({ firstName: "Bryan" })
+      .run()
       .then(rs => {
-        assert(rs.changes.removed)
-      })
-      .catch(rs => assert(false, rs.message));
-    })
-  })
-
-})
+        collect
+          .remove(rs.items[0]._id)
+          .then(rs => {
+            assert(rs.changes.removed);
+          })
+          .catch(rs => assert(false, rs.message));
+      });
+  });
+});
 
 //// async functions not applied
-deco.report();
+// deco.report();

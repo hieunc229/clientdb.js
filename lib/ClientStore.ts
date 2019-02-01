@@ -3,15 +3,16 @@ import Filter from './Filter';
 
 type IRecord = { [key: string]: any };
 type IError = { property: string, message: string };
+type ChangesInterface = {
+  removed: number, 
+  inserted: number, 
+  unchange: number, 
+  update: number
+};
 type IResult = {
   items: Array<IRecord>,
   error?: Array<IError>,
-  changes?: {
-    inserted: number,
-    deleted: number,
-    updated: number,
-    unchange: number
-  }
+  changes?: ChangesInterface
 }
 
 export default class ClientStore {
@@ -19,10 +20,7 @@ export default class ClientStore {
   ref: string;
   eventManager: EventSubscriber;
 
-  constructor(
-    name: string,
-    openDB: (callback: (db: IDBDatabase) => any) => any
-  ) {
+  constructor(name: string, openDB: (callback: (db: IDBDatabase) => any) => any) {
     this.openDB = openDB;
     this.ref = name;
     this.eventManager = new EventSubscriber();
@@ -30,18 +28,18 @@ export default class ClientStore {
 
   insert(record: Array<Object> | Object): Promise<IResult> {
     let data = Array.isArray(record) ? record : [record];
-    var _vars = this;
+    var _ = this;
     return new Promise((resolve: Function, reject: Function) => {
       
-      _vars.openDB((db: IDBDatabase) => {
-        var transaction = db.transaction(_vars.ref, "readwrite");
-        var objStore = transaction.objectStore(_vars.ref);
+      _.openDB((db: IDBDatabase) => {
+        var transaction = db.transaction(_.ref, "readwrite");
+        var objStore = transaction.objectStore(_.ref);
         var latestRequest: IDBRequest;
         data.forEach(item => {
           latestRequest = objStore.add(item);
         });
         transaction.oncomplete = (ev: any) => {
-          resolve({
+          var eventData = {
             items: data,
             changes: {
               inserted: data.length,
@@ -49,7 +47,9 @@ export default class ClientStore {
               removed: 0,
               unchange: 0
             }
-          })
+          };
+          _.eventManager.fire("insert", eventData);
+          resolve(eventData);
         };
         transaction.onerror = (ev: Event) => {
           reject({
@@ -63,12 +63,12 @@ export default class ClientStore {
 
   remove(record: Array<{}> | Object | string) : Promise<IResult> {
     let data = Array.isArray(record) ? record : [record];
-    let _vars = this;
+    let _ = this;
 
     return new Promise((resolve: Function, reject: Function) => {
-      _vars.openDB((db: IDBDatabase) => {
-        let transaction = db.transaction([_vars.ref], "readwrite");
-        let objStore = transaction.objectStore(_vars.ref);
+      _.openDB((db: IDBDatabase) => {
+        let transaction = db.transaction([_.ref], "readwrite");
+        let objStore = transaction.objectStore(_.ref);
         let id, lastRequest: IDBRequest;
 
         data.forEach((item: any) => {
@@ -83,7 +83,7 @@ export default class ClientStore {
         });
 
         transaction.oncomplete = (ev: any) => {
-          resolve({
+          const eventData = {
             items: [],
             changes: {
               inserted: 0,
@@ -91,7 +91,9 @@ export default class ClientStore {
               removed: data.length,
               unchange: 0
             }
-          })
+          };
+          _.eventManager.fire("remove", eventData);
+          resolve(eventData);
         };
         transaction.onerror = (ev: Event) => {
           reject({
@@ -104,11 +106,11 @@ export default class ClientStore {
   }
 
   update(id: string, changes: Object) : Promise<IResult> {
-    let _vars = this;
+    let _ = this;
     return new Promise((resolve: Function, reject: Function) => {
-      _vars.openDB((db: IDBDatabase) => {
-        let transaction = db.transaction([_vars.ref], "readwrite");
-        let objStore = transaction.objectStore(_vars.ref);
+      _.openDB((db: IDBDatabase) => {
+        let transaction = db.transaction([_.ref], "readwrite");
+        let objStore = transaction.objectStore(_.ref);
         let request = objStore.get(id);
 
         request.onsuccess = function(event: any) {
@@ -116,12 +118,27 @@ export default class ClientStore {
           var data = event.target.result;
 
           if (data) {
+            
             Object.assign(data, changes);
 
             // Put this updated object back into the database.
             var requestUpdate = objStore.put(data);
             requestUpdate.onerror = (ev: any) => reject(ev);
-            requestUpdate.onsuccess = (ev: any) => resolve(ev);
+
+            requestUpdate.onsuccess = (ev: any) => {
+              var eventData = {
+                items: [changes],
+                changes: {
+                  updated: 1,
+                  inserted: 0,
+                  removed: 0,
+                  unchange: 0
+                }
+              }
+              _.eventManager.fire("update", eventData);
+              resolve(eventData);
+            }
+
           } else {
             reject({ message: `Record "${id}" not existed` })
           }
@@ -175,17 +192,18 @@ export default class ClientStore {
         var objStore = db.transaction(this.ref, 'readwrite').objectStore(this.ref);
         var totalItems = objStore.count();
         var request = objStore.clear();
-
         request.onsuccess = (ev: Event) => {
-          resolve({
+          var eventData = {
             items: [],
             changes: {
-              removed: totalItems,
+              removed: objStore.indexNames.length,
               inserted: 0,
               unchange: 0,
               update: 0
             }
-          })
+          }
+          this.eventManager.fire("remove", eventData);
+          resolve(eventData);
         }
 
         request.onerror = (ev: Event) => {
@@ -203,5 +221,16 @@ export default class ClientStore {
 
       })
     });
+  }
+
+  /**
+   * Event subscriber
+   */
+  subscribe(
+    eventName: "insert" | "remove" | "update" | "changes" | "removeAll", 
+    callback: (event: string, changes: Array<object>) => void)
+  : void {
+
+    this.eventManager.subscribe(eventName, { callback });
   }
 }

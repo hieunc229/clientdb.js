@@ -34,7 +34,7 @@ class EventSubscriber {
         if (triggers && triggers.length) {
             triggers.forEach((trigger) => {
                 if (trigger.callback) {
-                    trigger.callback({ changed });
+                    trigger.callback(eventName, changed);
                 }
             });
         }
