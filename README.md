@@ -1,9 +1,20 @@
 # ClientDB.js
 
-A  Minimalistic Interface for IndexedDB with Promises (TypeScript supported)
+A Reactive and Minimalistic Interface for IndexedDB with Promises (TypeScript supported)
 
 ![](https://img.shields.io/npm/v/clientdb.js.svg?colorB=green&style=for-the-badge) 
 ![](https://img.shields.io/npm/l/clientdb.js.svg?colorB=blue&style=for-the-badge)
+
+Table of contents:
+
+- [Introduction](#introduction)
+- [Quickstart](#quickstart)
+- [Installation](#installation)
+
+More on Wiki page:
+
+- [API References](https://github.com/hieunc229/clientdb.js/wiki/3.-API-References)
+- [Build and Tests](https://github.com/hieunc229/clientdb.js/wiki/2.-Install,-Build-&-Tests#build-module)
 
 ## 1. Introduction
 
@@ -13,55 +24,24 @@ ClientDB.js is a wrapper for IndexedDB with simple APIs, all requests return a p
 
 Features:
 
-- ✅ Basic CRUD (create, read, update, delete) data records
+- ✅ Basic CRUD (create, read, update, delete) data records backed by sophisticated [IndexedDB](https://en.wikipedia.org/wiki/Indexed_Database_API)
 - ✅ Filter data using keys/indices
 - ✅ Event subscribers (subscribe event when insert, remove, and update)
 - TODO: paging, limit, relationship
 
-## 2. Installation
 
-ClientDB.js is available as npm module (supported TypeScript) and also works with plain Javascript.
-Follow one of the instructions below to install ClientDB.js to your project
-
-#### Install as NPM Module
-
-```ssh
-$ npm install --save clientdb.js
-```
-
-Then import `ClientDB` into your project
-```js
-import ClientDB from 'clientdb.js';
-```
-
-#### Install as In-browser Javascript Library
-
-```js
-// replace @x.x.x with current version
-// Available through window.ClientDB or just ClientDB
-<script src="https://unpkg.com/clientdb.js@0.1.4/dist/ClientDB.js"></script>
-```
-
-## 3. How to use:
-
-#### Quickstart example
+## 2. Quickstart
 
 ```js
 var stores = [{
     name: "Users",
-    // version: 1, // 1 is set by default, increase by 1 when keys or collections need to be updated
-    // name: "__default_clientDB",
-    // onerror: (err) => {}, // error if cannot open a database instance
-    // onsucess: () => {}, // callback when database is successfully opened
     keys: {
-        // a {_id: true } field is added and used as primary key
-        // keys will be indexed
-        // format is { [key name] : isUnique }
         firstName: false,
         lastName: false,
         username: true
     }
 }]
+
 var myDB = new ClientDB({ stores });
 
 // Insert
@@ -82,121 +62,31 @@ myDB.collect("Users").insert({
 })
 ```
 
-#### APIs
+## 3. Installation
+
+ClientDB.js is available as npm module (supported TypeScript) and also works with plain Javascript.
+Follow one of the instructions below to install ClientDB.js to your project
+
+#### Install as NPM Module
+
+```console
+$ npm install --save clientdb.js
+```
+
+Then import `ClientDB` into your project
+```js
+import ClientDB from 'clientdb.js';
+```
+
+#### Install as In-browser Javascript Library
 
 ```js
-
-// Get collection
-ClientDB.collect(collectionName: string) : ClientStore;
-
-// Delete the whole database
-ClientDB.destroy() : Promise<IResult>;
-
-// Get a record
-ClientStore.filter(query: Object) : Promise<IResult>;
-
-// Insert record/s into a collection
-ClientStore.insert(record: Array<Object> | Object) : Promise<IResult>;
-
-// Update a record in a collection
-ClientStore.update(id: string, changes: Object) : Promise<IResult>;
-
-// Remove record/s ids from a collection
-ClientStore.remove(ids: Array<string> | string) : Promise<IResult>;
-
-// Remove all records
-ClientStore.removeAllRecords() : Promise<IResult>;
-
+// replace @x.x.x with current version
+// Available through window.ClientDB or just ClientDB
+<script src="https://unpkg.com/clientdb.js@0.1.4/dist/ClientDB.js"></script>
 ```
 
-#### Event subscriber API
+---
 
-```js
-
-// Get collection
-ClientStore.subscribe(
-    eventName: string, 
-    callback: (eventName: string, changes: { items: Array<Object>, changes: ChangesInterface }) : void);
-```
-
-#### Types
-
-```js
-// Data record interface
-type IRecord = { [key: string]: any };
-
-// Error interface, received when an operation failed
-type IError = { property: string, message: string };
-
-// Changes interface, received as part of any CRUD operation result
-// to signal data changed in the database
-type ChangesInterface = {
-  removed: number, 
-  inserted: number, 
-  unchange: number, 
-  update: number
-};
-
-// CRUD result interface, received when performing any CRUD operation
-type IResult = {
-  items: Array<IRecord>,
-  error?: Array<IError>,
-  changes?: ChangesInterface
-}
-```
-
-#### TODO APIs
-
-- improve `ClientStore.remove` by using allow using filter
-
-## 4. Build module
-
-In case you want to rebuild the library to use on your project, choose one of the following options for your project.
-
-Clone the project, open Terminal (on MacOS or any relative console) and navigate to
-the repository folder and run the command:
-
-### 4.a. Build as a NPM module
-
-```sh
-$ npm run build
-```
-
-The module will be build into `./src`
-
-### 4.b. Build for browser
-
-```sh
-$ npm run build-js
-```
-
-The library will be build into `./dist`. You can include into `<script>` tag
-
-
-## 5. Tests
-
-_Note: I found current test libraries are tedious to setup. So I wrote a pretty simple and straight forward
-in-browser test class. (Test class might not suitable for large scale project)_
-
-### 5.1. Install dependencies
-
-Before running tests, install `http-server` globally. (More information about [http-server](https://github.com/indexzero/http-server#readme))
-
-```ssh
-$  npm install http-server -g
-```
-
-### 5.2. Clone project
-
-Clone or download this project to your computer, then navigate to the project
-directory.
-
-### 5.3. Run test
-
-From the root project, run below command. It will start a http server. Navigate to http://127.0.0.1:8080/tests to see the results. 
-
-_Note: Be aware of browser cache when you update tests_
-
-```ssh
-$ npm run test-browser
-```
+You can find [API References](https://github.com/hieunc229/clientdb.js/wiki/3.-API-References), [Build and Tests](https://github.com/hieunc229/clientdb.js/wiki/2.-Install,-Build-&-Tests#build-module) section on [ClientDB.js Wiki Page](https://github.com/hieunc229/clientdb.js/wiki). And feel free to [create an issue](https://github.com/hieunc229/clientdb.js/issues/new)
+related to this project or need any help.
