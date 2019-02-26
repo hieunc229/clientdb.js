@@ -16,8 +16,30 @@ class Filter {
     _openCursor(index, objectStore, keyRange) {
         return new Promise((resolve, reject) => {
             let request = objectStore.index(index).openCursor(keyRange);
-            request.onsuccess = (ev) => resolve(ev.target.result);
-            request.onerror = (ev) => reject(ev);
+            var results = {
+                errors: [],
+                items: []
+            };
+            request.onsuccess = (ev) => {
+                var cursor = ev.target.result;
+                if (cursor) {
+                    results.items.push(cursor.value);
+                    cursor.continue();
+                }
+                else {
+                    resolve(results);
+                }
+            };
+            request.onerror = (ev) => {
+                var cursor = ev.target.result;
+                if (cursor) {
+                    results.errors.push(cursor.value);
+                    cursor.continue();
+                }
+                else {
+                    resolve(results);
+                }
+            };
         });
     }
     // Iterate throw cursor with multiple key ranges
@@ -78,11 +100,11 @@ class Filter {
                 resolve({ items, errors });
             }
             function transactionSuccess(result) {
-                if (Array.isArray(result)) {
-                    results = results.concat(result);
+                if (Array.isArray(result.items)) {
+                    results = results.concat(result.items);
                 }
                 else {
-                    results.push(result);
+                    results.push(result.items);
                 }
                 completedTransaction++;
                 if (completedTransaction === maxTransaction) {
@@ -124,8 +146,9 @@ class Filter {
                         debugger;
                         throw Error(`Unable to parse ${q}`);
                     }
-                    _vars._openCursor(q.property, objectStore, keyRange)
-                        .then(rs => transactionSuccess(rs.value))
+                    _vars
+                        ._openCursor(q.property, objectStore, keyRange)
+                        .then(rs => transactionSuccess(rs))
                         .catch(error => {
                         transactionError({
                             property: q.property,

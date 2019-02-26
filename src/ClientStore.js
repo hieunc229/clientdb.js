@@ -137,6 +137,23 @@ class ClientStore {
             collection: this.ref
         });
     }
+    records() {
+        return new Promise((resolve, reject) => {
+            this.openDB(db => {
+                var transaction = db.transaction(this.ref, "readonly");
+                var objectStore = transaction.objectStore(this.ref);
+                var request = objectStore.getAll();
+                request.onsuccess = (ev) => {
+                    resolve(ev.target.result);
+                };
+                request.onerror = (err) => {
+                    reject({
+                        message: request.error
+                    });
+                };
+            });
+        });
+    }
     get(key) {
         return new Promise((resolve, reject) => {
             this.openDB(db => {

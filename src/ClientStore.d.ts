@@ -7,15 +7,16 @@ declare type IError = {
     property: string;
     message: string;
 };
+declare type ChangesInterface = {
+    removed: number;
+    inserted: number;
+    unchange: number;
+    update: number;
+};
 declare type IResult = {
     items: Array<IRecord>;
     error?: Array<IError>;
-    changes?: {
-        inserted: number;
-        deleted: number;
-        updated: number;
-        unchange: number;
-    };
+    changes?: ChangesInterface;
 };
 export default class ClientStore {
     openDB: (callback: (db: IDBDatabase) => any) => any;
@@ -29,6 +30,7 @@ export default class ClientStore {
     filter(queries: {
         [key: string]: any;
     }): Filter;
+    records(): Promise<any>;
     get(key: any): Promise<any>;
     removeAllRecords(): Promise<IResult>;
     /**

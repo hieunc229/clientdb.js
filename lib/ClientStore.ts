@@ -166,6 +166,26 @@ export default class ClientStore {
       });
   }
 
+  records(): Promise<any> {
+    return new Promise((resolve: Function, reject: Function) => {
+      this.openDB(db => {
+        var transaction = db.transaction(this.ref, "readonly");
+        var objectStore = transaction.objectStore(this.ref);
+        var request = objectStore.getAll();
+        
+        request.onsuccess = (ev: any) => {
+          resolve(ev.target.result);
+        }
+
+        request.onerror = (err: any) => {
+          reject({
+            message: request.error
+          })
+        }
+      })
+    });
+  }
+
   get(key: any) : Promise<any> {
     return new Promise((resolve: Function, reject: Function) => {
       this.openDB(db => {

@@ -27,8 +27,31 @@ export default class Filter {
   ): Promise<any> {
     return new Promise((resolve: Function, reject: Function) => {
       let request = objectStore.index(index).openCursor(keyRange);
-      request.onsuccess = (ev: any) => resolve(ev.target.result);
-      request.onerror = (ev: any) => reject(ev);
+      var results: {
+        errors: { [key: string]: any }[];
+        items: { [key: string]: any }[];
+      } = {
+        errors: [],
+        items: []
+      };
+      request.onsuccess = (ev: any) => {
+        var cursor = ev.target.result;
+        if (cursor) {
+          results.items.push(cursor.value);
+          cursor.continue();
+        } else {
+          resolve(results);
+        }
+      };
+      request.onerror = (ev: any) => {
+        var cursor = ev.target.result;
+        if (cursor) {
+          results.errors.push(cursor.value);
+          cursor.continue();
+        } else {
+          resolve(results);
+        }
+      };
     });
   }
 
@@ -86,17 +109,18 @@ export default class Filter {
 
   run(): Promise<{}> {
     let _vars = this;
-    
+
     return new Promise((resolve: Function, reject: Function) => {
-      let completedTransaction = 0, maxTransaction = _vars.queries.length;
-      let results : Array<any> = [];
+      let completedTransaction = 0,
+        maxTransaction = _vars.queries.length;
+      let results: Array<any> = [];
       let errors: Array<any> = [];
 
       function transactionComplete() {
         var seen = new Array(results.length);
         var items = new Array(results.length);
         var uniqueCount = 0;
-        
+
         results.forEach(item => {
           if (seen.indexOf(item._id) == -1) {
             items[uniqueCount] = item;
@@ -110,11 +134,10 @@ export default class Filter {
       }
 
       function transactionSuccess(result: any) {
-
-        if (Array.isArray(result)) {
-          results = results.concat(result)
+        if (Array.isArray(result.items)) {
+          results = results.concat(result.items);
         } else {
-          results.push(result);
+          results.push(result.items);
         }
 
         completedTransaction++;
@@ -132,38 +155,38 @@ export default class Filter {
       }
 
       this.openDB((db: IDBDatabase) => {
-
         let objectStore = db
           .transaction(_vars.collection, "readonly")
           .objectStore(_vars.collection);
 
         _vars.queries.forEach(q => {
           var keyRange: IDBKeyRange;
-          if (q.eq) { 
+          if (q.eq) {
             keyRange = IDBKeyRange.only(q.eq);
           } else if (q.range) {
             keyRange = IDBKeyRange.bound(q.range.from, q.range.to);
           } else if (q.gt) {
-            keyRange = IDBKeyRange.upperBound(q.gt, false )
+            keyRange = IDBKeyRange.upperBound(q.gt, false);
           } else if (q.gte) {
             keyRange = IDBKeyRange.upperBound(q.gt, true);
           } else if (q.lt) {
-            keyRange = IDBKeyRange.lowerBound(q.lt, false )
+            keyRange = IDBKeyRange.lowerBound(q.lt, false);
           } else if (q.lte) {
             keyRange = IDBKeyRange.lowerBound(q.lte, true);
           } else {
-            debugger
+            debugger;
             throw Error(`Unable to parse ${q}`);
           }
 
-          _vars._openCursor(q.property, objectStore, keyRange)
-          .then(rs => transactionSuccess(rs.value))
-          .catch(error => {
-            transactionError({
-              property: q.property,
-              message: error.message
-            })
-          });
+          _vars
+            ._openCursor(q.property, objectStore, keyRange)
+            .then(rs => transactionSuccess(rs))
+            .catch(error => {
+              transactionError({
+                property: q.property,
+                message: error.message
+              });
+            });
         });
       });
     });
