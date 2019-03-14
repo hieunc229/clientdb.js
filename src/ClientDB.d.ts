@@ -12,7 +12,9 @@ declare type Props = {
 export default class ClientDB {
     db: any;
     ref: any;
-    stores: Array<any>;
+    stores: {
+        [name: string]: ClientStore;
+    };
     options: Props;
     /**
      * Initiate ClientDB instance, setup and start indexedDB

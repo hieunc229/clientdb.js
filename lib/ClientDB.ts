@@ -1,6 +1,6 @@
 import ClientStore from "./ClientStore";
 
-const defaultName = '__clientdb_default';
+const defaultName = "__clientdb_default";
 
 type Props = {
   name?: string;
@@ -10,19 +10,18 @@ type Props = {
   onsuccess?: (event: any) => void;
 };
 
-
 /**
  * Implementation of ClientDB in TypeScript
  */
 export default class ClientDB {
   db: any;
   ref: any;
-  stores: Array<any> = [];
+  stores: { [name: string]: ClientStore } = {};
   options: Props;
 
   /**
    * Initiate ClientDB instance, setup and start indexedDB
-   * 
+   *
    * @returns {ClientDB}
    */
   constructor(options: Props) {
@@ -45,38 +44,36 @@ export default class ClientDB {
       onsuccess,
       stores: options.stores
     };
-
     this._init();
   }
 
   /**
    * Erorr handler when indexedDB cannot open database
-   * 
+   *
    * @returns {void}
    */
-  _handleOpenFail(ev: any) : void {
+  _handleOpenFail(ev: any): void {
     console.error(ev.errorCode, "Unable to open database");
   }
 
   /**
    * Success handler when indexedDB open database successfully
-   * 
+   *
    * @returns {void}
    */
-  _handleOpenSuccess(ev: any) : void {
+  _handleOpenSuccess(ev: any): void {
     this.db = ev.target.result;
   }
 
   /**
    * Setup structure based on user-predefined layout
-   * 
+   *
    * @returns {void}
    */
   _handleStructureInitiate(ev: any) {
-
     if (!ev.target) return;
 
-    var db : IDBDatabase = ev.target.result;
+    var db: IDBDatabase = ev.target.result;
 
     if (this.options.stores) {
       this.options.stores.forEach(
@@ -87,12 +84,12 @@ export default class ClientDB {
           } else {
             objStore = ev.target.transaction.objectStore(store.name);
           }
-          
+
           Object.keys(store.keys).forEach((key: string) => {
             if (!objStore.indexNames.contains(key)) {
               objStore.createIndex(key, key, { unique: store.keys[key] });
             }
-            // TODO: deleteIndex 
+            // TODO: deleteIndex
           });
         }
       );
@@ -102,7 +99,7 @@ export default class ClientDB {
   /**
    * First open indexedDB instance, restructure layout if needed
    * To update layout, increment `version` property when create database by 1 (and must be an int)
-   * 
+   *
    * @returns {void}
    */
   _init() {
@@ -114,15 +111,18 @@ export default class ClientDB {
     stores &&
       (request.onupgradeneeded = this._handleStructureInitiate.bind(this));
 
+    this.options.stores.forEach((ss: { name: string }) => {
+      this.stores[ss.name] = new ClientStore(ss.name, this.open.bind(this));
+    });
     return this;
   }
 
   /**
    * Open database to perform any transaction
-   * 
+   *
    * @returns {void}
    */
-  open(callback: (database: IDBDatabase) => any) : void {
+  open(callback: (database: IDBDatabase) => any): void {
     let { name, version, onerror } = this.options;
 
     var request = indexedDB.open(name || defaultName, version);
@@ -135,19 +135,19 @@ export default class ClientDB {
 
   /**
    * Select a collection to perform a transaction
-   * 
+   *
    * @returns {ClientStore}
    */
-  collect(name: string) : ClientStore {
-    return new ClientStore(name, this.open.bind(this));
+  collect(name: string): ClientStore {
+    return this.stores[name]; //new ClientStore(name, this.open.bind(this));
   }
 
   /**
    * Remove database completely
-   * 
+   *
    * @returns {void}
    */
-  destroy() : void {
+  destroy(): void {
     indexedDB.deleteDatabase(this.options.name || defaultName);
   }
 }

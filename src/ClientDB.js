@@ -4,7 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const ClientStore_1 = __importDefault(require("./ClientStore"));
-const defaultName = '__clientdb_default';
+const defaultName = "__clientdb_default";
 /**
  * Implementation of ClientDB in TypeScript
  */
@@ -15,7 +15,7 @@ class ClientDB {
      * @returns {ClientDB}
      */
     constructor(options) {
-        this.stores = [];
+        this.stores = {};
         var name = defaultName;
         var version = 1;
         var onerror = this._handleOpenFail.bind(this);
@@ -73,7 +73,7 @@ class ClientDB {
                     if (!objStore.indexNames.contains(key)) {
                         objStore.createIndex(key, key, { unique: store.keys[key] });
                     }
-                    // TODO: deleteIndex 
+                    // TODO: deleteIndex
                 });
             });
         }
@@ -91,6 +91,9 @@ class ClientDB {
         request.onsuccess = this._handleOpenSuccess.bind(this);
         stores &&
             (request.onupgradeneeded = this._handleStructureInitiate.bind(this));
+        this.options.stores.forEach((ss) => {
+            this.stores[ss.name] = new ClientStore_1.default(ss.name, this.open.bind(this));
+        });
         return this;
     }
     /**
@@ -113,7 +116,7 @@ class ClientDB {
      * @returns {ClientStore}
      */
     collect(name) {
-        return new ClientStore_1.default(name, this.open.bind(this));
+        return this.stores[name]; //new ClientStore(name, this.open.bind(this));
     }
     /**
      * Remove database completely
