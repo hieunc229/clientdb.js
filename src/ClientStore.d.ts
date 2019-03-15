@@ -1,5 +1,5 @@
 import EventSubscriber from "./utils/subscriber";
-import Filter from './Filter';
+import Filter from "./Filter";
 declare type IRecord = {
     [key: string]: any;
 };
@@ -37,5 +37,6 @@ export default class ClientStore {
      * Event subscriber
      */
     subscribe(eventName: "insert" | "remove" | "update" | "changes" | "removeAll", callback: (event: string, changes: Array<object>) => void): void;
+    on(eventName: "insert" | "remove" | "update" | "changes" | "removeAll", callback: (event: string, changes: Array<object>) => void): void;
 }
 export {};

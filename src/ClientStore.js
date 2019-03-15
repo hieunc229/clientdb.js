@@ -53,9 +53,12 @@ class ClientStore {
                 let objStore = transaction.objectStore(_.ref);
                 let id, lastRequest;
                 data.forEach((item) => {
-                    if ((id = typeof item == "string" ? item
-                        : typeof item == "object" && "_id" in item ? item._id
-                            : false)) {
+                    if ((id =
+                        typeof item == "string"
+                            ? item
+                            : typeof item == "object" && "_id" in item
+                                ? item._id
+                                : false)) {
                         lastRequest = objStore.delete(id);
                     }
                     else {
@@ -124,8 +127,7 @@ class ClientStore {
     openCursor(callback) {
         this.openDB(db => {
             var transaction = db.transaction(this.ref, "readonly");
-            transaction.objectStore(this.ref).openCursor()
-                .onsuccess = (ev) => {
+            transaction.objectStore(this.ref).openCursor().onsuccess = (ev) => {
                 callback(ev.target.result);
             };
         });
@@ -174,7 +176,9 @@ class ClientStore {
     removeAllRecords() {
         return new Promise((resolve, reject) => {
             this.openDB(db => {
-                var objStore = db.transaction(this.ref, 'readwrite').objectStore(this.ref);
+                var objStore = db
+                    .transaction(this.ref, "readwrite")
+                    .objectStore(this.ref);
                 var totalItems = objStore.count();
                 var request = objStore.clear();
                 request.onsuccess = (ev) => {
@@ -209,6 +213,9 @@ class ClientStore {
      * Event subscriber
      */
     subscribe(eventName, callback) {
+        this.eventManager.subscribe(eventName, { callback });
+    }
+    on(eventName, callback) {
         this.eventManager.subscribe(eventName, { callback });
     }
 }

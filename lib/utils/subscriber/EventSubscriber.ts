@@ -1,3 +1,10 @@
+/* ===============================================================
+//
+//  Copyright by Ambi Studio 2018
+//  Licensed under the Apache License, Version 2.0 (the "License");
+//  (Please find "LICENSE" file attached for license details)
+//============================================================= */
+
 export default class EventSubscriber {
   events: any = {
     change: []
@@ -53,7 +60,7 @@ export default class EventSubscriber {
   //   Let say we subscribed using this func, and trigger a "itemCreated" event
   //   - "event": event name that was fired ("itemCreated")
   //   - "changes": any item that was passed through the "itemCreated" event trigger
-  onChange(callback: Function) {
+  onChange(callback: (rs?: any) => void) {
     this.events.change.push(callback);
   }
 }
