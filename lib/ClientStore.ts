@@ -32,6 +32,7 @@ export default class ClientStore {
   insert(record: Array<Object> | Object): Promise<IResult> {
     let data = Array.isArray(record) ? record : [record];
     var _ = this;
+
     return new Promise((resolve: Function, reject: Function) => {
       _.openDB((db: IDBDatabase) => {
         var transaction = db.transaction(_.ref, "readwrite");
@@ -63,8 +64,24 @@ export default class ClientStore {
     });
   }
 
-  remove(record: Array<{}> | Object | string): Promise<IResult> {
-    let data = Array.isArray(record) ? record : [record];
+  remove(
+    record: Array<{ _id: string }> | { _id: string } | string
+  ): Promise<IResult> {
+    let data: any[] = [];
+
+    // transform input into an array of id only
+    if (Array.isArray(record)) {
+      data = record.map(item => {
+        return typeof item === "string" ? item : item._id;
+      });
+    } else {
+      if (typeof record === "string") {
+        data = [record];
+      } else {
+        data = [record._id];
+      }
+    }
+    Array.isArray(record) ? record : [record];
     let _ = this;
 
     return new Promise((resolve: Function, reject: Function) => {
@@ -73,24 +90,13 @@ export default class ClientStore {
         let objStore = transaction.objectStore(_.ref);
         let id, lastRequest: IDBRequest;
 
-        data.forEach((item: any) => {
-          if (
-            (id =
-              typeof item == "string"
-                ? item
-                : typeof item == "object" && "_id" in item
-                ? item._id
-                : false)
-          ) {
-            lastRequest = objStore.delete(id);
-          } else {
-            throw Error(`Unable to delete ${item}`);
-          }
+        data.forEach((id: string) => {
+          lastRequest = objStore.delete(id);
         });
 
         transaction.oncomplete = (ev: any) => {
           const eventData = {
-            items: [],
+            items: data,
             changes: {
               inserted: 0,
               updated: 0,
@@ -132,7 +138,7 @@ export default class ClientStore {
 
             requestUpdate.onsuccess = (ev: any) => {
               var eventData = {
-                items: [changes],
+                items: [{ id, changes }],
                 changes: {
                   updated: 1,
                   inserted: 0,

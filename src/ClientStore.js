@@ -45,29 +45,34 @@ class ClientStore {
         });
     }
     remove(record) {
-        let data = Array.isArray(record) ? record : [record];
+        let data = [];
+        // transform input into an array of id only
+        if (Array.isArray(record)) {
+            data = record.map(item => {
+                return typeof item === "string" ? item : item._id;
+            });
+        }
+        else {
+            if (typeof record === "string") {
+                data = [record];
+            }
+            else {
+                data = [record._id];
+            }
+        }
+        Array.isArray(record) ? record : [record];
         let _ = this;
         return new Promise((resolve, reject) => {
             _.openDB((db) => {
                 let transaction = db.transaction([_.ref], "readwrite");
                 let objStore = transaction.objectStore(_.ref);
                 let id, lastRequest;
-                data.forEach((item) => {
-                    if ((id =
-                        typeof item == "string"
-                            ? item
-                            : typeof item == "object" && "_id" in item
-                                ? item._id
-                                : false)) {
-                        lastRequest = objStore.delete(id);
-                    }
-                    else {
-                        throw Error(`Unable to delete ${item}`);
-                    }
+                data.forEach((id) => {
+                    lastRequest = objStore.delete(id);
                 });
                 transaction.oncomplete = (ev) => {
                     const eventData = {
-                        items: [],
+                        items: data,
                         changes: {
                             inserted: 0,
                             updated: 0,
@@ -104,7 +109,7 @@ class ClientStore {
                         requestUpdate.onerror = (ev) => reject(ev);
                         requestUpdate.onsuccess = (ev) => {
                             var eventData = {
-                                items: [changes],
+                                items: [{ id, changes }],
                                 changes: {
                                     updated: 1,
                                     inserted: 0,
