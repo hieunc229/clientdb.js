@@ -24,12 +24,12 @@ export default class EventSubscriber {
   }
 
   // Trigger all subscribers of an event
-  fire(eventName: string, changed: any) {
+  fire(eventName: string, changes: any) {
     const triggers = this.events[eventName];
     if (triggers && triggers.length) {
       triggers.forEach((trigger: any) => {
         if (trigger.callback) {
-          trigger.callback(eventName, changed);
+          trigger.callback(eventName, changes);
         }
       });
     }
@@ -37,7 +37,7 @@ export default class EventSubscriber {
     // Trigger a event fire subscriber
     this.triggerOnChangeEvent({
       event: eventName,
-      changed
+      changes
     });
   }
 
@@ -52,7 +52,7 @@ export default class EventSubscriber {
   // Explain:
   //   Let say we subscribed using this func, and trigger a "itemCreated" event
   //   - "event": event name that was fired ("itemCreated")
-  //   - "changed": any item that was passed through the "itemCreated" event trigger
+  //   - "changes": any item that was passed through the "itemCreated" event trigger
   onChange(callback: Function) {
     this.events.change.push(callback);
   }

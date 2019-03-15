@@ -1,3 +1,0 @@
-[submodule "lib/subscriber"]
-	path = lib/subscriber
-	url = https://github.com/vasern/sm-subscriber
