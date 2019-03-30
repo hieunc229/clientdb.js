@@ -1,21 +1,41 @@
 import ClientStore from "./ClientStore";
+import EventSubscriber from "./utils/subscriber";
 declare type Props = {
     name?: string;
-    version?: number;
-    stores: Array<any>;
+    stores: StoreProps[];
     onerror?: (event: any) => void;
     onsuccess?: (event: any) => void;
+    allowUpdate?: boolean;
+};
+declare type IKeys = {
+    [name: string]: {
+        unique: boolean;
+        type: "number" | "string" | "ref" | "boolean";
+    };
+};
+declare type StoreProps = {
+    name: string;
+    primaryKey?: string;
+    keys: IKeys;
 };
 /**
  * Implementation of ClientDB in TypeScript
  */
 export default class ClientDB {
-    db: any;
+    db?: IDBDatabase;
     ref: any;
     stores: {
         [name: string]: ClientStore;
     };
-    options: Props;
+    options: {
+        name: string;
+        version: number;
+        stores: Array<any>;
+        onerror: (event: any) => void;
+        onsuccess: (event: any) => void;
+        allowUpdate?: boolean;
+    };
+    eventManager: EventSubscriber;
     /**
      * Initiate ClientDB instance, setup and start indexedDB
      *
@@ -33,7 +53,8 @@ export default class ClientDB {
      *
      * @returns {void}
      */
-    _handleOpenSuccess(ev: any): void;
+    request: any;
+    _handleOpenSuccess(db: IDBDatabase): void;
     /**
      * Setup structure based on user-predefined layout
      *
@@ -41,18 +62,19 @@ export default class ClientDB {
      */
     _handleStructureInitiate(ev: any): void;
     /**
-     * First open indexedDB instance, restructure layout if needed
-     * To update layout, increment `version` property when create database by 1 (and must be an int)
-     *
-     * @returns {void}
-     */
-    _init(): this;
-    /**
      * Open database to perform any transaction
      *
      * @returns {void}
      */
-    open(callback: (database: IDBDatabase) => any): void;
+    isOpening: boolean;
+    open: (callback: (database: IDBDatabase) => any) => void;
+    removeStore(storeName: string): Promise<{}>;
+    createStore(storeName: string, keys: IKeys): Promise<{}>;
+    updateKeys(storeName: string, keys: IKeys): Promise<any>;
+    onerror: (ev: any) => void;
+    upgrade: () => void;
+    onsuccess: (ev: any) => void;
+    onupgradeneeded: (ev: any) => void;
     /**
      * Select a collection to perform a transaction
      *

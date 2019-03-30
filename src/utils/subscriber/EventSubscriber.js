@@ -27,7 +27,14 @@ class EventSubscriber {
             this.events[eventName] = [];
         }
         if (override) {
-            const index = this.events.find((ev) => ev.id === trigger.id);
+            var index = -1;
+            this.events[eventName].find((ev, i) => {
+                if (ev.id === trigger.id) {
+                    index = i;
+                    return true;
+                }
+                return false;
+            });
             if (index !== -1) {
                 this.events[eventName].splice(index, 1);
             }
@@ -38,9 +45,12 @@ class EventSubscriber {
     fire(eventName, changes) {
         const triggers = this.events[eventName];
         if (triggers && triggers.length) {
-            triggers.forEach((trigger) => {
+            triggers.forEach((trigger, i) => {
                 if (trigger.callback) {
                     trigger.callback(eventName, changes);
+                }
+                if (trigger.once) {
+                    triggers.splice(i, 1);
                 }
             });
         }
@@ -56,7 +66,7 @@ class EventSubscriber {
     //   - "event": event name that was fired ("itemCreated")
     //   - "changes": any item that was passed through the "itemCreated" event trigger
     onChange(callback) {
-        this.events.change.push(callback);
+        this.events.change.push({ callback });
     }
 }
 exports.default = EventSubscriber;

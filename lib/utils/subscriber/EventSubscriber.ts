@@ -5,8 +5,12 @@
 //  (Please find "LICENSE" file attached for license details)
 //============================================================= */
 
+type Trigger = { callback: Function; id?: string; once?: boolean };
+type EventList = {
+  [name: string]: Trigger[];
+};
 export default class EventSubscriber {
-  events: any = {
+  events: EventList = {
     change: []
   };
 
@@ -15,13 +19,20 @@ export default class EventSubscriber {
   }
 
   // Subscribe a trigger to an event
-  subscribe(eventName: string, trigger: { callback: Function, id? : string }, override = false) {
+  subscribe(eventName: string, trigger: Trigger, override = false) {
     if (!this.events[eventName]) {
       this.events[eventName] = [];
     }
 
     if (override) {
-      const index = this.events.find((ev: any) => ev.id === trigger.id);
+      var index = -1;
+      this.events[eventName].find((ev: any, i: number) => {
+        if (ev.id === trigger.id) {
+          index = i;
+          return true;
+        }
+        return false;
+      });
       if (index !== -1) {
         this.events[eventName].splice(index, 1);
       }
@@ -34,9 +45,12 @@ export default class EventSubscriber {
   fire(eventName: string, changes: any) {
     const triggers = this.events[eventName];
     if (triggers && triggers.length) {
-      triggers.forEach((trigger: any) => {
+      triggers.forEach((trigger: any, i: number) => {
         if (trigger.callback) {
           trigger.callback(eventName, changes);
+        }
+        if (trigger.once) {
+          triggers.splice(i, 1);
         }
       });
     }
@@ -61,6 +75,6 @@ export default class EventSubscriber {
   //   - "event": event name that was fired ("itemCreated")
   //   - "changes": any item that was passed through the "itemCreated" event trigger
   onChange(callback: (rs?: any) => void) {
-    this.events.change.push(callback);
+    this.events.change.push({ callback });
   }
 }

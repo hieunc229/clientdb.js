@@ -13,7 +13,10 @@ var myDB = new ClientDB({
         age: false
       }
     }
-  ]
+  ],
+  onerror: (err) => {
+    console.log(err);
+  }
 });
 
 // 2. Get Users collection by its .name specified when initiate ClientDB instance (1)
@@ -101,7 +104,7 @@ deco.describe("Insert and update record", ({ it }) => {
         firstName: "Bryan"
       })
       .then(({ items }) => {
-        assert(items && Array.isArray(items) && items.length)
+        assert(items && Array.isArray(items) && items.length);
       })
       .catch(err => assert(false, err.message));
   });
@@ -154,5 +157,23 @@ deco.describe("Remove record", dop => {
   });
 });
 
-//// async functions not applied
-// deco.report();
+setTimeout(() => {
+  deco.describe("Update keys", dop => {
+    dop.it("should remove `age` and add `yob`", ({ assert }) => {
+      myDB
+        .updateKeys("Users", {
+          firstName: false,
+          lastName: false,
+          username: true,
+          yob: {
+            unique: false
+          }
+        })
+        .then(rs => {
+          console.log(rs);
+          assert(true);
+        })
+        .catch(err => assert(false, err.message));
+    });
+  });
+}, 5000);
