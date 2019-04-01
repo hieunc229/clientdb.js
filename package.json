@@ -1,6 +1,6 @@
 {
   "name": "clientdb.js",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "description": "A Client-Side Database with Minimalistic Interface for IndexedDB (TypeScript supported)",
   "main": "src/index.js",
   "scripts": {
