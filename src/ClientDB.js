@@ -239,8 +239,9 @@ class ClientDB {
                     reject({ message: request.error });
                 };
                 request.onsuccess = (ev) => {
-                    _.db = ev.target.result;
-                    resolve(_.db);
+                    var db = ev.target.result;
+                    _.db = db;
+                    resolve(db);
                 };
                 request.onupgradeneeded = function (ev) {
                     let objStore = ev.target.transaction.objectStore(storeName);

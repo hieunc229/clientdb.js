@@ -36,6 +36,7 @@ export default class ClientStore {
     }): Filter;
     records(): Promise<any>;
     get(key: any): Promise<any>;
+    getAll(keys: string[]): Promise<any>;
     removeAllRecords(): Promise<IResult>;
     /**
      * Event subscriber

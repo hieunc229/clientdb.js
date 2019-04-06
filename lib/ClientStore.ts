@@ -57,7 +57,7 @@ export default class ClientStore {
         transaction.onerror = (ev: Event) => {
           reject({
             items: data,
-            message: latestRequest.error
+            message: transaction.error
           });
         };
       });
@@ -204,6 +204,36 @@ export default class ClientStore {
 
         request.onsuccess = (ev: any) => {
           resolve(ev.target.result);
+        };
+
+        request.onerror = (err: any) => {
+          reject({
+            message: request.error
+          });
+        };
+      });
+    });
+  }
+
+  getAll(keys: string[]): Promise<any> {
+    return new Promise((resolve: Function, reject: Function) => {
+      this.openDB(db => {
+        var transaction = db.transaction(this.ref, "readonly");
+        var objectStore = transaction.objectStore(this.ref);
+        var request = objectStore.openCursor()
+
+        var results: any[] = [];
+        var cursor;
+        request.onsuccess = (ev: any) => {
+          cursor = ev.target.result;
+          if (cursor) {
+            if (keys.indexOf(cursor.key) !== -1) {
+              results.push(cursor.value);
+            }
+            cursor.continue();
+          } else {
+            resolve(results);
+          }
         };
 
         request.onerror = (err: any) => {

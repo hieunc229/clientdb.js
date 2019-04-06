@@ -222,8 +222,9 @@ export default class ClientDB {
         };
 
         request.onsuccess = (ev: any) => {
-          _.db = ev.target.result;
-          resolve(_.db);
+          var db = ev.target.result;
+          _.db = db;
+          resolve(db);
         };
 
         request.onupgradeneeded = function(ev: any) {

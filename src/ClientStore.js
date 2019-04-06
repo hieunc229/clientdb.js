@@ -38,7 +38,7 @@ class ClientStore {
                 transaction.onerror = (ev) => {
                     reject({
                         items: data,
-                        message: latestRequest.error
+                        message: transaction.error
                     });
                 };
             });
@@ -169,6 +169,34 @@ class ClientStore {
                 var request = objectStore.get(key);
                 request.onsuccess = (ev) => {
                     resolve(ev.target.result);
+                };
+                request.onerror = (err) => {
+                    reject({
+                        message: request.error
+                    });
+                };
+            });
+        });
+    }
+    getAll(keys) {
+        return new Promise((resolve, reject) => {
+            this.openDB(db => {
+                var transaction = db.transaction(this.ref, "readonly");
+                var objectStore = transaction.objectStore(this.ref);
+                var request = objectStore.openCursor();
+                var results = [];
+                var cursor;
+                request.onsuccess = (ev) => {
+                    cursor = ev.target.result;
+                    if (cursor) {
+                        if (keys.indexOf(cursor.key) !== -1) {
+                            results.push(cursor.value);
+                        }
+                        cursor.continue();
+                    }
+                    else {
+                        resolve(results);
+                    }
                 };
                 request.onerror = (err) => {
                     reject({
