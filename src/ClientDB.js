@@ -17,37 +17,141 @@ class ClientDB {
      */
     constructor(options) {
         this.stores = {};
+        this.__openConnections = 0;
+        /**
+         * Erorr handler when indexedDB cannot open database
+         *
+         * @returns {void}
+         */
+        this._handleOpenFail = (ev) => {
+            console.error(ev.errorCode, this.request.error, "Unable to open database");
+            this.request = undefined;
+        };
+        this._handleOpenSuccess = (db) => {
+            this.options.version = db.version;
+            this.request = undefined;
+            this.eventManager.fire("open", { db });
+        };
+        /**
+         * Setup structure based on user-predefined layout
+         *
+         * @returns {void}
+         */
+        this._handleStructureInitiate = (ev) => {
+            if (!ev.target)
+                return;
+            var db = ev.target.result;
+            if (this.options.stores) {
+                this.options.stores.forEach((store) => {
+                    let objStore;
+                    if (!db.objectStoreNames.contains(store.name)) {
+                        objStore = db.createObjectStore(store.name, {
+                            keyPath: store.primaryKey || `_id`
+                        });
+                    }
+                    else {
+                        objStore = ev.target.transaction.objectStore(store.name);
+                    }
+                    Object.keys(store.keys).forEach((key) => {
+                        if (!objStore.indexNames.contains(key)) {
+                            objStore.createIndex(key, key, { unique: store.keys[key].unique });
+                        }
+                    });
+                });
+            }
+        };
         /**
          * Open database to perform any transaction
          *
          * @returns {void}
          */
         this.isOpening = false;
-        this.open = (callback) => {
-            if (this.db)
-                callback(this.db);
-            var fired = false;
-            this.eventManager.subscribe("open", {
-                callback: () => {
-                    if (!fired) {
-                        // @ts-ignore
-                        callback(this.db);
-                        fired = true;
-                    }
-                },
-                once: true
-            });
-            if (!this.isOpening) {
-                let { name, version, onerror, onsuccess } = this.options;
-                var request = indexedDB.open(name || defaultName, version);
-                this.request = request;
-                request.onerror = onerror;
-                request.onsuccess = (ev) => {
-                    this.isOpening = false;
-                    onsuccess(ev.target.result);
-                };
-                request.onupgradeneeded = this.onupgradeneeded;
+        this.closeConnection = () => {
+            if (this.__openConnections === 0 && this.db) {
+                this.db.close();
+                this.db = undefined;
             }
+        };
+        this.open = (callback) => {
+            var fired = false;
+            if (this.db) {
+                callback(this.db, this.closeConnection);
+            }
+            else {
+                this.__openConnections++;
+                let _ = this;
+                this.eventManager.subscribe("open", {
+                    callback: (name, opts) => {
+                        if (!fired) {
+                            this.__openConnections--;
+                            // @ts-ignore
+                            _.db = opts.db;
+                            callback(_.db, this.closeConnection);
+                            fired = true;
+                        }
+                    },
+                    once: true
+                });
+                if (!this.isOpening) {
+                    let { name, onerror, onsuccess } = this.options;
+                    let version = this.options.version > 1 ? this.options.version : undefined;
+                    var request = indexedDB.open(name || defaultName, version);
+                    this.request = request;
+                    request.onerror = function (ev) {
+                        onerror({ message: request.error });
+                    };
+                    request.onsuccess = (ev) => {
+                        this.isOpening = false;
+                        onsuccess(ev.target.result);
+                        ev.target.result.close();
+                    };
+                    request.onupgradeneeded = this.onupgradeneeded;
+                    request.onblocked = ev => {
+                        console.warn("Open DB blocked");
+                    };
+                }
+            }
+        };
+        // Update store indexes
+        this.updateKeys = (storeName, keys) => {
+            var _ = this;
+            return new Promise((resolve, reject) => {
+                var request = indexedDB.open(_.options.name, _.options.version + 1);
+                _.request = request;
+                request.onerror = function (ev) {
+                    reject({ message: request.error });
+                };
+                request.onblocked = ev => {
+                    console.warn("Operation is blocked");
+                    if (_.db) {
+                        _.db.close();
+                    }
+                };
+                request.onsuccess = (ev) => {
+                    this.options.version = ev.target.result.version;
+                    ev.target.result.close();
+                    resolve();
+                };
+                request.onupgradeneeded = function (ev) {
+                    let objStore = ev.target.transaction.objectStore(storeName);
+                    if (!objStore) {
+                        reject({
+                            message: `Collection ${storeName} not exists, use ".createStore(storeName, keys)" instead`
+                        });
+                    }
+                    let currentIndexes = Array.from(objStore.indexNames);
+                    currentIndexes.forEach((prop) => {
+                        if (!keys[prop]) {
+                            objStore.deleteIndex(prop);
+                        }
+                    });
+                    Object.keys(keys).forEach((prop) => {
+                        if (!objStore.indexNames.contains(prop)) {
+                            objStore.createIndex(prop, prop, { unique: keys[prop].unique });
+                        }
+                    });
+                };
+            }); // end new Promise
         };
         this.onerror = (ev) => {
             this.options.onerror(this.request.error);
@@ -121,14 +225,13 @@ class ClientDB {
                     }
                 });
             }
-            this.db = db;
         };
         this.options = Object.assign({
             allowUpdate: false,
             name: defaultName,
             version: 1,
-            onerror: this._handleOpenFail.bind(this),
-            onsuccess: this._handleOpenSuccess.bind(this)
+            onerror: this._handleOpenFail,
+            onsuccess: this._handleOpenSuccess
         }, options);
         this.options.stores.forEach((ss) => {
             this.stores[ss.name] = new ClientStore_1.default(ss.name, this.open.bind(this));
@@ -140,61 +243,21 @@ class ClientDB {
         request.onsuccess = this.onsuccess;
         request.onupgradeneeded = this.onupgradeneeded;
     }
-    /**
-     * Erorr handler when indexedDB cannot open database
-     *
-     * @returns {void}
-     */
-    _handleOpenFail(ev) {
-        console.error(ev.errorCode, "Unable to open database");
-    }
-    _handleOpenSuccess(db) {
-        this.db = db;
-        this.options.version = db.version;
-        this.request = undefined;
-        this.eventManager.fire("open", null);
-    }
-    /**
-     * Setup structure based on user-predefined layout
-     *
-     * @returns {void}
-     */
-    _handleStructureInitiate(ev) {
-        if (!ev.target)
-            return;
-        var db = ev.target.result;
-        if (this.options.stores) {
-            this.options.stores.forEach((store) => {
-                let objStore;
-                if (!db.objectStoreNames.contains(store.name)) {
-                    objStore = db.createObjectStore(store.name, {
-                        keyPath: store.primaryKey || `_id`
-                    });
-                }
-                else {
-                    objStore = ev.target.transaction.objectStore(store.name);
-                }
-                Object.keys(store.keys).forEach((key) => {
-                    if (!objStore.indexNames.contains(key)) {
-                        objStore.createIndex(key, key, { unique: store.keys[key].unique });
-                    }
-                });
-            });
-        }
-    }
     removeStore(storeName) {
         var _ = this;
         return new Promise((resolve, reject) => {
-            _.open(db => {
+            _.open((db, onComplete) => {
                 let { name, version } = _.options;
                 var request = indexedDB.open(name || defaultName, version + 1);
+                this.request = request;
                 request.onerror = function (ev) {
                     reject(request.error);
                 };
                 request.onsuccess = (ev) => {
-                    db = ev.target.result;
+                    ev.target.result.close();
                     delete this.stores[storeName];
-                    resolve(db);
+                    resolve();
+                    onComplete();
                 };
                 request.onupgradeneeded = function (ev) {
                     db.deleteObjectStore(storeName);
@@ -206,15 +269,17 @@ class ClientDB {
         var _ = this;
         return new Promise((resolve, reject) => {
             let existStoreInfo = _.options.stores.find(store => store.name === storeName);
-            _.open(db => {
+            _.open((db, onComplete) => {
                 var request = indexedDB.open(db.name, db.version + 1);
+                this.request = request;
                 request.onerror = function (ev) {
                     reject(request.error);
                 };
                 request.onsuccess = (ev) => {
-                    _.db = ev.target.result;
+                    ev.target.result.close();
                     this.stores[storeName] = new ClientStore_1.default(storeName, this.open.bind(this));
-                    resolve(db);
+                    resolve();
+                    onComplete();
                 };
                 request.onupgradeneeded = function (ev) {
                     let objStore = db.createObjectStore(storeName, {
@@ -222,44 +287,6 @@ class ClientDB {
                     });
                     Object.keys(keys).forEach((key) => {
                         objStore.createIndex(key, key, { unique: keys[key].unique });
-                    });
-                };
-            });
-        });
-    }
-    updateKeys(storeName, keys) {
-        var _ = this;
-        if (this.db) {
-            this.db.close();
-        }
-        return new Promise((resolve, reject) => {
-            _.open(db => {
-                var request = indexedDB.open(db.name, db.version + 1);
-                request.onerror = function (ev) {
-                    reject({ message: request.error });
-                };
-                request.onsuccess = (ev) => {
-                    var db = ev.target.result;
-                    _.db = db;
-                    resolve(db);
-                };
-                request.onupgradeneeded = function (ev) {
-                    let objStore = ev.target.transaction.objectStore(storeName);
-                    if (!objStore) {
-                        reject({
-                            message: `Collection ${storeName} not exists, use ".createStore(storeName, keys)" instead`
-                        });
-                    }
-                    let currentIndexes = Array.from(objStore.indexNames);
-                    currentIndexes.forEach((prop) => {
-                        if (!keys[prop]) {
-                            objStore.deleteIndex(prop);
-                        }
-                    });
-                    Object.keys(keys).forEach((prop) => {
-                        if (!objStore.indexNames.contains(prop)) {
-                            objStore.createIndex(prop, prop, { unique: keys[prop].unique });
-                        }
                     });
                 };
             });

@@ -19,10 +19,10 @@ declare type IResult = {
     changes?: ChangesInterface;
 };
 export default class ClientStore {
-    openDB: (callback: (db: IDBDatabase) => any) => any;
+    openDB: (callback: (db: IDBDatabase, onComplete: Function) => any) => any;
     ref: string;
     eventManager: EventSubscriber;
-    constructor(name: string, openDB: (callback: (db: IDBDatabase) => any) => any);
+    constructor(name: string, openDB: (callback: (db: IDBDatabase, onComplete: Function) => any) => any);
     insert(record: Array<Object> | Object): Promise<IResult>;
     remove(record: Array<{
         _id: string;
@@ -30,7 +30,7 @@ export default class ClientStore {
         _id: string;
     } | string): Promise<IResult>;
     update(id: string, changes: Object): Promise<IResult>;
-    openCursor(callback: (cursor: any) => any): void;
+    openCursor(callback: (cursor: any, db: IDBDatabase) => any): void;
     filter(queries: {
         [key: string]: any;
     }): Filter;

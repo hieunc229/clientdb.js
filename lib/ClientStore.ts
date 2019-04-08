@@ -16,13 +16,13 @@ type IResult = {
 };
 
 export default class ClientStore {
-  openDB: (callback: (db: IDBDatabase) => any) => any;
+  openDB: (callback: (db: IDBDatabase, onComplete: Function) => any) => any;
   ref: string;
   eventManager: EventSubscriber;
 
   constructor(
     name: string,
-    openDB: (callback: (db: IDBDatabase) => any) => any
+    openDB: (callback: (db: IDBDatabase, onComplete: Function) => any) => any
   ) {
     this.openDB = openDB;
     this.ref = name;
@@ -34,7 +34,7 @@ export default class ClientStore {
     var _ = this;
 
     return new Promise((resolve: Function, reject: Function) => {
-      _.openDB((db: IDBDatabase) => {
+      _.openDB((db: IDBDatabase, onComplete) => {
         var transaction = db.transaction(_.ref, "readwrite");
         var objStore = transaction.objectStore(_.ref);
         var latestRequest: IDBRequest;
@@ -53,6 +53,7 @@ export default class ClientStore {
           };
           _.eventManager.fire("insert", eventData);
           resolve(eventData);
+          onComplete();
         };
         transaction.onerror = (ev: Event) => {
           reject({
@@ -85,7 +86,7 @@ export default class ClientStore {
     let _ = this;
 
     return new Promise((resolve: Function, reject: Function) => {
-      _.openDB((db: IDBDatabase) => {
+      _.openDB((db: IDBDatabase, onComplete) => {
         let transaction = db.transaction([_.ref], "readwrite");
         let objStore = transaction.objectStore(_.ref);
         let id, lastRequest: IDBRequest;
@@ -106,6 +107,7 @@ export default class ClientStore {
           };
           _.eventManager.fire("remove", eventData);
           resolve(eventData);
+          onComplete();
         };
         transaction.onerror = (ev: Event) => {
           reject({
@@ -120,7 +122,7 @@ export default class ClientStore {
   update(id: string, changes: Object): Promise<IResult> {
     let _ = this;
     return new Promise((resolve: Function, reject: Function) => {
-      _.openDB((db: IDBDatabase) => {
+      _.openDB((db: IDBDatabase, onComplete) => {
         let transaction = db.transaction([_.ref], "readwrite");
         let objStore = transaction.objectStore(_.ref);
         let request = objStore.get(id);
@@ -147,22 +149,27 @@ export default class ClientStore {
                 }
               };
               _.eventManager.fire("update", eventData);
+
               resolve(eventData);
+              onComplete();
             };
           } else {
             reject({ message: `Record "${id}" not existed` });
           }
         };
-        request.onerror = (ev: any) => reject(ev);
+        request.onerror = (ev: any) => {
+          reject(request.error);
+        };
       });
     });
   }
 
-  openCursor(callback: (cursor: any) => any) {
-    this.openDB(db => {
+  //TODO: return as promise
+  openCursor(callback: (cursor: any, db: IDBDatabase) => any) {
+    this.openDB((db, onComplete) => {
       var transaction = db.transaction(this.ref, "readonly");
       transaction.objectStore(this.ref).openCursor().onsuccess = (ev: any) => {
-        callback(ev.target.result);
+        callback(ev.target.result, db);
       };
     });
   }
@@ -177,13 +184,16 @@ export default class ClientStore {
 
   records(): Promise<any> {
     return new Promise((resolve: Function, reject: Function) => {
-      this.openDB(db => {
+      this.openDB((db, onComplete) => {
         var transaction = db.transaction(this.ref, "readonly");
         var objectStore = transaction.objectStore(this.ref);
         var request = objectStore.getAll();
 
         request.onsuccess = (ev: any) => {
-          resolve(ev.target.result);
+          let result = ev.target.result;
+
+          resolve(result);
+          onComplete();
         };
 
         request.onerror = (err: any) => {
@@ -197,13 +207,16 @@ export default class ClientStore {
 
   get(key: any): Promise<any> {
     return new Promise((resolve: Function, reject: Function) => {
-      this.openDB(db => {
+      this.openDB((db, onComplete) => {
         var transaction = db.transaction(this.ref, "readonly");
         var objectStore = transaction.objectStore(this.ref);
         var request = objectStore.get(key);
 
         request.onsuccess = (ev: any) => {
-          resolve(ev.target.result);
+          let result = ev.target.result;
+
+          resolve(result);
+          onComplete();
         };
 
         request.onerror = (err: any) => {
@@ -217,10 +230,10 @@ export default class ClientStore {
 
   getAll(keys: string[]): Promise<any> {
     return new Promise((resolve: Function, reject: Function) => {
-      this.openDB(db => {
+      this.openDB((db, onComplete) => {
         var transaction = db.transaction(this.ref, "readonly");
         var objectStore = transaction.objectStore(this.ref);
-        var request = objectStore.openCursor()
+        var request = objectStore.openCursor();
 
         var results: any[] = [];
         var cursor;
@@ -233,6 +246,7 @@ export default class ClientStore {
             cursor.continue();
           } else {
             resolve(results);
+            onComplete();
           }
         };
 
@@ -247,7 +261,7 @@ export default class ClientStore {
 
   removeAllRecords(): Promise<IResult> {
     return new Promise((resolve: Function, reject: Function) => {
-      this.openDB(db => {
+      this.openDB((db, onComplete) => {
         var objStore = db
           .transaction(this.ref, "readwrite")
           .objectStore(this.ref);
@@ -265,6 +279,7 @@ export default class ClientStore {
           };
           this.eventManager.fire("remove", eventData);
           resolve(eventData);
+          onComplete();
         };
 
         request.onerror = (ev: Event) => {

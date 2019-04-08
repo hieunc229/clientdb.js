@@ -36,6 +36,7 @@ export default class ClientDB {
     allowUpdate?: boolean;
   };
   eventManager: EventSubscriber;
+  __openConnections = 0;
   /**
    * Initiate ClientDB instance, setup and start indexedDB
    *
@@ -47,8 +48,8 @@ export default class ClientDB {
         allowUpdate: false,
         name: defaultName,
         version: 1,
-        onerror: this._handleOpenFail.bind(this),
-        onsuccess: this._handleOpenSuccess.bind(this)
+        onerror: this._handleOpenFail,
+        onsuccess: this._handleOpenSuccess
       },
       options
     );
@@ -70,9 +71,10 @@ export default class ClientDB {
    *
    * @returns {void}
    */
-  _handleOpenFail(ev: any): void {
-    console.error(ev.errorCode, "Unable to open database");
-  }
+  _handleOpenFail = (ev: any) => {
+    console.error(ev.errorCode, this.request.error, "Unable to open database");
+    this.request = undefined;
+  };
 
   /**
    * Success handler when indexedDB open database successfully
@@ -80,19 +82,18 @@ export default class ClientDB {
    * @returns {void}
    */
   request: any;
-  _handleOpenSuccess(db: IDBDatabase): void {
-    this.db = db;
+  _handleOpenSuccess = (db: IDBDatabase) => {
     this.options.version = db.version;
     this.request = undefined;
-    this.eventManager.fire("open", null);
-  }
+    this.eventManager.fire("open", { db });
+  };
 
   /**
    * Setup structure based on user-predefined layout
    *
    * @returns {void}
    */
-  _handleStructureInitiate(ev: any) {
+  _handleStructureInitiate = (ev: any) => {
     if (!ev.target) return;
 
     var db: IDBDatabase = ev.target.result;
@@ -114,7 +115,7 @@ export default class ClientDB {
         });
       });
     }
-  }
+  };
 
   /**
    * Open database to perform any transaction
@@ -123,48 +124,73 @@ export default class ClientDB {
    */
   isOpening = false;
 
-  open = (callback: (database: IDBDatabase) => any): void => {
-    if (this.db) callback(this.db);
+  closeConnection = () => {
+    if (this.__openConnections === 0 && this.db) {
+      this.db.close();
+      this.db = undefined;
+    }
+  };
 
+  open = (callback: (db: IDBDatabase, onComplete: Function) => any): void => {
     var fired = false;
-    this.eventManager.subscribe("open", {
-      callback: () => {
-        if (!fired) {
-          // @ts-ignore
-          callback(this.db);
-          fired = true;
-        }
-      },
-      once: true
-    });
 
-    if (!this.isOpening) {
-      let { name, version, onerror, onsuccess } = this.options;
+    if (this.db) {
+      callback(this.db, this.closeConnection);
+    } else {
 
-      var request = indexedDB.open(name || defaultName, version);
-      this.request = request;
-      request.onerror = onerror;
-      request.onsuccess = (ev: any) => {
-        this.isOpening = false;
-        onsuccess(ev.target.result);
-      };
-      request.onupgradeneeded = this.onupgradeneeded;
+    this.__openConnections++;
+      let _ = this;
+      this.eventManager.subscribe("open", {
+        callback: (name: string, opts: { db: IDBDatabase }) => {
+          if (!fired) {
+            this.__openConnections--;
+            // @ts-ignore
+            _.db = opts.db;
+            callback(_.db, this.closeConnection);
+            fired = true;
+          }
+        },
+        once: true
+      });
+
+      if (!this.isOpening) {
+        let { name, onerror, onsuccess } = this.options;
+        let version =
+          this.options.version > 1 ? this.options.version : undefined;
+
+        var request = indexedDB.open(name || defaultName, version);
+        this.request = request;
+        request.onerror = function(ev) {
+          onerror({ message: request.error });
+        };
+        request.onsuccess = (ev: any) => {
+          this.isOpening = false;
+          onsuccess(ev.target.result);
+          ev.target.result.close();
+        };
+        request.onupgradeneeded = this.onupgradeneeded;
+        request.onblocked = ev => {
+          console.warn("Open DB blocked");
+        };
+      }
     }
   };
 
   removeStore(storeName: string) {
     var _ = this;
     return new Promise((resolve, reject) => {
-      _.open(db => {
+      _.open((db, onComplete) => {
         let { name, version } = _.options;
         var request = indexedDB.open(name || defaultName, version + 1);
+        this.request = request;
         request.onerror = function(ev) {
           reject(request.error);
         };
         request.onsuccess = (ev: any) => {
-          db = ev.target.result;
+          ev.target.result.close();
           delete this.stores[storeName];
-          resolve(db);
+          resolve();
+          onComplete();
         };
         request.onupgradeneeded = function(ev) {
           db.deleteObjectStore(storeName);
@@ -173,26 +199,28 @@ export default class ClientDB {
     });
   }
 
-  createStore(storeName: string, keys: IKeys) {
+  createStore(storeName: string, keys: IKeys): Promise<any> {
     var _ = this;
     return new Promise((resolve, reject) => {
       let existStoreInfo = _.options.stores.find(
         store => store.name === storeName
       );
 
-      _.open(db => {
+      _.open((db, onComplete) => {
         var request = indexedDB.open(db.name, db.version + 1);
+        this.request = request;
         request.onerror = function(ev) {
           reject(request.error);
         };
 
         request.onsuccess = (ev: any) => {
-          _.db = ev.target.result;
+          ev.target.result.close();
           this.stores[storeName] = new ClientStore(
             storeName,
             this.open.bind(this)
           );
-          resolve(db);
+          resolve();
+          onComplete();
         };
 
         request.onupgradeneeded = function(ev) {
@@ -208,49 +236,53 @@ export default class ClientDB {
     });
   }
 
-  updateKeys(storeName: string, keys: IKeys): Promise<any> {
+  // Update store indexes
+  updateKeys = (storeName: string, keys: IKeys): Promise<any> => {
     var _ = this;
-    if (this.db) {
-      this.db.close();
-    }
+    
     return new Promise((resolve, reject) => {
-      _.open(db => {
-        var request = indexedDB.open(db.name, db.version + 1);
+      var request = indexedDB.open(_.options.name, _.options.version + 1);
+      _.request = request;
 
-        request.onerror = function(ev) {
-          reject({ message: request.error });
-        };
+      request.onerror = function(ev) {
+        reject({ message: request.error });
+      };
 
-        request.onsuccess = (ev: any) => {
-          var db = ev.target.result;
-          _.db = db;
-          resolve(db);
-        };
+      request.onblocked = ev => {
+        console.warn("Operation is blocked");
+        if (_.db) {
+          _.db.close();
+        }
+      };
 
-        request.onupgradeneeded = function(ev: any) {
-          let objStore = ev.target.transaction.objectStore(storeName);
-          if (!objStore) {
-            reject({
-              message: `Collection ${storeName} not exists, use ".createStore(storeName, keys)" instead`
-            });
+      request.onsuccess = (ev: any) => {
+        this.options.version = ev.target.result.version;
+        ev.target.result.close();
+        resolve();
+      };
+
+      request.onupgradeneeded = function(ev: any) {
+        let objStore = ev.target.transaction.objectStore(storeName);
+        if (!objStore) {
+          reject({
+            message: `Collection ${storeName} not exists, use ".createStore(storeName, keys)" instead`
+          });
+        }
+        let currentIndexes = Array.from(objStore.indexNames);
+        currentIndexes.forEach((prop: any) => {
+          if (!keys[prop]) {
+            objStore.deleteIndex(prop);
           }
-          let currentIndexes = Array.from(objStore.indexNames);
+        });
 
-          currentIndexes.forEach((prop: any) => {
-            if (!keys[prop]) {
-              objStore.deleteIndex(prop);
-            }
-          });
-
-          Object.keys(keys).forEach((prop: string) => {
-            if (!objStore.indexNames.contains(prop)) {
-              objStore.createIndex(prop, prop, { unique: keys[prop].unique });
-            }
-          });
-        };
-      });
-    });
-  }
+        Object.keys(keys).forEach((prop: string) => {
+          if (!objStore.indexNames.contains(prop)) {
+            objStore.createIndex(prop, prop, { unique: keys[prop].unique });
+          }
+        });
+      };
+    }); // end new Promise
+  };
 
   onerror = (ev: any) => {
     this.options.onerror(this.request.error);
@@ -265,7 +297,7 @@ export default class ClientDB {
   };
 
   onsuccess = (ev: any) => {
-    let db = ev.target.result;
+    let db: IDBDatabase = ev.target.result;
     this.request = undefined;
     if (!this.options.allowUpdate) {
       this.options.allowUpdate = false;
@@ -332,8 +364,6 @@ export default class ClientDB {
         }
       });
     }
-
-    this.db = db;
   };
 
   /**

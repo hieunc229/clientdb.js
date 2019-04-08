@@ -36,6 +36,7 @@ export default class ClientDB {
         allowUpdate?: boolean;
     };
     eventManager: EventSubscriber;
+    __openConnections: number;
     /**
      * Initiate ClientDB instance, setup and start indexedDB
      *
@@ -47,30 +48,31 @@ export default class ClientDB {
      *
      * @returns {void}
      */
-    _handleOpenFail(ev: any): void;
+    _handleOpenFail: (ev: any) => void;
     /**
      * Success handler when indexedDB open database successfully
      *
      * @returns {void}
      */
     request: any;
-    _handleOpenSuccess(db: IDBDatabase): void;
+    _handleOpenSuccess: (db: IDBDatabase) => void;
     /**
      * Setup structure based on user-predefined layout
      *
      * @returns {void}
      */
-    _handleStructureInitiate(ev: any): void;
+    _handleStructureInitiate: (ev: any) => void;
     /**
      * Open database to perform any transaction
      *
      * @returns {void}
      */
     isOpening: boolean;
-    open: (callback: (database: IDBDatabase) => any) => void;
+    closeConnection: () => void;
+    open: (callback: (db: IDBDatabase, onComplete: Function) => any) => void;
     removeStore(storeName: string): Promise<{}>;
-    createStore(storeName: string, keys: IKeys): Promise<{}>;
-    updateKeys(storeName: string, keys: IKeys): Promise<any>;
+    createStore(storeName: string, keys: IKeys): Promise<any>;
+    updateKeys: (storeName: string, keys: IKeys) => Promise<any>;
     onerror: (ev: any) => void;
     upgrade: () => void;
     onsuccess: (ev: any) => void;
