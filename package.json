@@ -8,7 +8,8 @@
     "test-browser": "echo 'Test is running at http://127.0.0.1:8080/tests/' && http-server ./",
     "build": "tsc",
     "cover": "istanbul cover node_modules/mocha/bin/_mocha tests/*.js - - -R spec",
-    "build-js": "npm run build && browserify browser/export.js -p tinyify -o dist/ClientDB.js"
+    "build-js": "npm run build && browserify browser/export.js -p tinyify -o dist/ClientDB.js",
+    "build-local": "tsc && yalc push"
   },
   "author": "Ambi Studio <https://ambi.studio>",
   "license": "Apache 2.0",

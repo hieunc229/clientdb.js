@@ -24,11 +24,12 @@ class ClientDB {
          * @returns {void}
          */
         this._handleOpenFail = (ev) => {
-            console.error(ev.errorCode, this.request.error, "Unable to open database");
+            console.error(ev.errorCode, "Unable to open database");
             this.request = undefined;
         };
         this._handleOpenSuccess = (db) => {
             this.options.version = db.version;
+            this.db = db;
             this.request = undefined;
             this.eventManager.fire("open", { db });
         };
@@ -42,6 +43,10 @@ class ClientDB {
                 return;
             var db = ev.target.result;
             if (this.options.stores) {
+                var transaction = ev.target.transaction;
+                transaction.oncomplete = () => {
+                    db.close();
+                };
                 this.options.stores.forEach((store) => {
                     let objStore;
                     if (!db.objectStoreNames.contains(store.name)) {
@@ -50,7 +55,7 @@ class ClientDB {
                         });
                     }
                     else {
-                        objStore = ev.target.transaction.objectStore(store.name);
+                        objStore = transaction.objectStore(store.name);
                     }
                     Object.keys(store.keys).forEach((key) => {
                         if (!objStore.indexNames.contains(key)) {
@@ -67,6 +72,7 @@ class ClientDB {
          */
         this.isOpening = false;
         this.closeConnection = () => {
+            this.__openConnections--;
             if (this.__openConnections === 0 && this.db) {
                 this.db.close();
                 this.db = undefined;
@@ -74,16 +80,15 @@ class ClientDB {
         };
         this.open = (callback) => {
             var fired = false;
+            this.__openConnections++;
             if (this.db) {
                 callback(this.db, this.closeConnection);
             }
             else {
-                this.__openConnections++;
                 let _ = this;
                 this.eventManager.subscribe("open", {
                     callback: (name, opts) => {
                         if (!fired) {
-                            this.__openConnections--;
                             // @ts-ignore
                             _.db = opts.db;
                             callback(_.db, this.closeConnection);
@@ -102,8 +107,11 @@ class ClientDB {
                     };
                     request.onsuccess = (ev) => {
                         this.isOpening = false;
-                        onsuccess(ev.target.result);
-                        ev.target.result.close();
+                        let db = ev.target.result;
+                        onsuccess(db);
+                        ev.target.result.onversionchange = () => {
+                            db.close();
+                        };
                     };
                     request.onupgradeneeded = this.onupgradeneeded;
                     request.onblocked = ev => {
@@ -123,17 +131,16 @@ class ClientDB {
                 };
                 request.onblocked = ev => {
                     console.warn("Operation is blocked");
-                    if (_.db) {
-                        _.db.close();
-                    }
                 };
                 request.onsuccess = (ev) => {
-                    this.options.version = ev.target.result.version;
+                    var version = ev.target.result.version;
+                    this.options.version = version;
+                    resolve({ version });
                     ev.target.result.close();
-                    resolve();
                 };
                 request.onupgradeneeded = function (ev) {
-                    let objStore = ev.target.transaction.objectStore(storeName);
+                    var transaction = ev.target.transaction;
+                    let objStore = transaction.objectStore(storeName);
                     if (!objStore) {
                         reject({
                             message: `Collection ${storeName} not exists, use ".createStore(storeName, keys)" instead`
@@ -189,7 +196,7 @@ class ClientDB {
             }
         };
         this.onupgradeneeded = (ev) => {
-            let db = ev.target.result;
+            let db = this.request.result;
             let newKeys = this.options.stores;
             let oldKeys = Array.from(db.objectStoreNames);
             if (db.version === 1) {
@@ -225,6 +232,9 @@ class ClientDB {
                     }
                 });
             }
+            db.onversionchange = () => {
+                db.close();
+            };
         };
         this.options = Object.assign({
             allowUpdate: false,
@@ -252,6 +262,7 @@ class ClientDB {
                 this.request = request;
                 request.onerror = function (ev) {
                     reject(request.error);
+                    onComplete();
                 };
                 request.onsuccess = (ev) => {
                     ev.target.result.close();
@@ -261,6 +272,7 @@ class ClientDB {
                 };
                 request.onupgradeneeded = function (ev) {
                     db.deleteObjectStore(storeName);
+                    onComplete();
                 };
             });
         });
@@ -268,26 +280,37 @@ class ClientDB {
     createStore(storeName, keys) {
         var _ = this;
         return new Promise((resolve, reject) => {
-            let existStoreInfo = _.options.stores.find(store => store.name === storeName);
+            // let existStoreInfo = _.options.stores.find(
+            //   store => store.name === storeName
+            // );
             _.open((db, onComplete) => {
                 var request = indexedDB.open(db.name, db.version + 1);
                 this.request = request;
                 request.onerror = function (ev) {
                     reject(request.error);
+                    onComplete();
+                };
+                request.onblocked = ev => {
+                    db.close();
+                    console.log("Request blocked");
                 };
                 request.onsuccess = (ev) => {
                     ev.target.result.close();
                     this.stores[storeName] = new ClientStore_1.default(storeName, this.open.bind(this));
+                    _.options.version = ev.target.result.version;
                     resolve();
                     onComplete();
                 };
                 request.onupgradeneeded = function (ev) {
-                    let objStore = db.createObjectStore(storeName, {
-                        keyPath: existStoreInfo.primaryKey || "_id"
+                    let objStore = request.result.createObjectStore(storeName, {
+                        keyPath: "_id"
                     });
-                    Object.keys(keys).forEach((key) => {
-                        objStore.createIndex(key, key, { unique: keys[key].unique });
-                    });
+                    if (keys) {
+                        Object.keys(keys).forEach((key) => {
+                            objStore.createIndex(key, key, { unique: keys[key].unique });
+                        });
+                    }
+                    onComplete();
                 };
             });
         });

@@ -2,12 +2,12 @@ import parseQuery, { IObjectQuery } from "./utils/queryParser";
 
 type IFilter = {
   queries: { [key: string]: any };
-  openDB: (callback: (db: IDBDatabase) => void) => void;
+  openDB: (callback: (db: IDBDatabase, onComplete: Function) => void) => void;
   collection: string;
 };
 
 export default class Filter {
-  openDB: (callback: (db: IDBDatabase) => any) => any;
+  openDB: (callback: (db: IDBDatabase, onComplete: Function) => any) => any;
   queries: Array<IObjectQuery>;
   m_max = -1;
   m_page = -1;
@@ -49,7 +49,7 @@ export default class Filter {
           results.errors.push(cursor.value);
           cursor.continue();
         } else {
-          resolve(results);
+          reject(results);
         }
       };
     });
@@ -108,58 +108,42 @@ export default class Filter {
   }
 
   run(): Promise<{}> {
-    let _vars = this;
+    let _ = this;
 
     return new Promise((resolve: Function, reject: Function) => {
-      let completedTransaction = 0,
-        maxTransaction = _vars.queries.length;
-      let results: Array<any> = [];
-      let errors: Array<any> = [];
+      this.openDB((db, onComplete) => {
+        let results: Array<any> = [];
+        let errors: Array<any> = [];
+        let transaction = db.transaction(_.collection, "readonly");
 
-      function transactionComplete() {
-        var seen = new Array(results.length);
-        var items = new Array(results.length);
-        var uniqueCount = 0;
+        transaction.oncomplete = ev => {
+          var seen = new Array(results.length);
+          var items = new Array(results.length);
+          var uniqueCount = 0;
 
-        results.forEach(item => {
-          if (seen.indexOf(item._id) == -1) {
-            items[uniqueCount] = item;
-            seen[uniqueCount++] = item.key;
-          }
-        });
+          results.forEach(item => {
+            if (seen.indexOf(item._id) == -1) {
+              items[uniqueCount] = item;
+              seen[uniqueCount++] = item.key;
+            }
+          });
 
-        items.splice(uniqueCount);
-
-        resolve({ items, errors });
-      }
-
-      function transactionSuccess(result: any) {
-        if (Array.isArray(result.items)) {
-          results = results.concat(result.items);
-        } else {
-          results.push(result.items);
+          items.splice(uniqueCount);
+          resolve({ items, errors });
+          onComplete();
+        };
+        transaction.onerror = ev => {
+          reject(errors);
+          onComplete();
+        };
+        transaction.onabort = ev => {
+          console.error("Transaction aborted");
+          onComplete();
         }
 
-        completedTransaction++;
-        if (completedTransaction === maxTransaction) {
-          transactionComplete();
-        }
-      }
+        let objectStore = transaction.objectStore(_.collection);
 
-      function transactionError(err: any) {
-        completedTransaction++;
-        errors.push(err);
-        if (completedTransaction === maxTransaction) {
-          transactionComplete();
-        }
-      }
-
-      this.openDB((db: IDBDatabase) => {
-        let objectStore = db
-          .transaction(_vars.collection, "readonly")
-          .objectStore(_vars.collection);
-
-        _vars.queries.forEach(q => {
+        _.queries.forEach(q => {
           var keyRange: IDBKeyRange;
           if (q.eq) {
             keyRange = IDBKeyRange.only(q.eq);
@@ -178,11 +162,16 @@ export default class Filter {
             throw Error(`Unable to parse ${q}`);
           }
 
-          _vars
-            ._openCursor(q.property, objectStore, keyRange)
-            .then(rs => transactionSuccess(rs))
+          _._openCursor(q.property, objectStore, keyRange)
+            .then(result => {
+              if (Array.isArray(result.items)) {
+                results = results.concat(result.items);
+              } else {
+                results.push(result.items);
+              }
+            })
             .catch(error => {
-              transactionError({
+              errors.push({
                 property: q.property,
                 message: error.message
               });

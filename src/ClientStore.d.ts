@@ -15,7 +15,7 @@ declare type ChangesInterface = {
 };
 declare type IResult = {
     items: Array<IRecord>;
-    error?: Array<IError>;
+    errors?: Array<IError>;
     changes?: ChangesInterface;
 };
 export default class ClientStore {
@@ -30,7 +30,11 @@ export default class ClientStore {
         _id: string;
     } | string): Promise<IResult>;
     update(id: string, changes: Object): Promise<IResult>;
-    openCursor(callback: (cursor: any, db: IDBDatabase) => any): void;
+    openCursor(): Promise<{
+        cursor: any;
+        db: IDBDatabase;
+        onComplete: Function;
+    }>;
     filter(queries: {
         [key: string]: any;
     }): Filter;

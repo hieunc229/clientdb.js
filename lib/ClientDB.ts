@@ -72,7 +72,7 @@ export default class ClientDB {
    * @returns {void}
    */
   _handleOpenFail = (ev: any) => {
-    console.error(ev.errorCode, this.request.error, "Unable to open database");
+    console.error(ev.errorCode, "Unable to open database");
     this.request = undefined;
   };
 
@@ -84,6 +84,7 @@ export default class ClientDB {
   request: any;
   _handleOpenSuccess = (db: IDBDatabase) => {
     this.options.version = db.version;
+    this.db = db;
     this.request = undefined;
     this.eventManager.fire("open", { db });
   };
@@ -98,6 +99,10 @@ export default class ClientDB {
 
     var db: IDBDatabase = ev.target.result;
     if (this.options.stores) {
+      var transaction = ev.target.transaction;
+      transaction.oncomplete = () => {
+        db.close();
+      };
       this.options.stores.forEach((store: StoreProps) => {
         let objStore: IDBObjectStore;
         if (!db.objectStoreNames.contains(store.name)) {
@@ -105,7 +110,7 @@ export default class ClientDB {
             keyPath: store.primaryKey || `_id`
           });
         } else {
-          objStore = ev.target.transaction.objectStore(store.name);
+          objStore = transaction.objectStore(store.name);
         }
 
         Object.keys(store.keys).forEach((key: string) => {
@@ -125,6 +130,7 @@ export default class ClientDB {
   isOpening = false;
 
   closeConnection = () => {
+    this.__openConnections--;
     if (this.__openConnections === 0 && this.db) {
       this.db.close();
       this.db = undefined;
@@ -133,17 +139,15 @@ export default class ClientDB {
 
   open = (callback: (db: IDBDatabase, onComplete: Function) => any): void => {
     var fired = false;
+    this.__openConnections++;
 
     if (this.db) {
       callback(this.db, this.closeConnection);
     } else {
-
-    this.__openConnections++;
       let _ = this;
       this.eventManager.subscribe("open", {
         callback: (name: string, opts: { db: IDBDatabase }) => {
           if (!fired) {
-            this.__openConnections--;
             // @ts-ignore
             _.db = opts.db;
             callback(_.db, this.closeConnection);
@@ -165,8 +169,11 @@ export default class ClientDB {
         };
         request.onsuccess = (ev: any) => {
           this.isOpening = false;
-          onsuccess(ev.target.result);
-          ev.target.result.close();
+          let db = ev.target.result;
+          onsuccess(db);
+          ev.target.result.onversionchange = () => {
+            db.close();
+          };
         };
         request.onupgradeneeded = this.onupgradeneeded;
         request.onblocked = ev => {
@@ -185,6 +192,7 @@ export default class ClientDB {
         this.request = request;
         request.onerror = function(ev) {
           reject(request.error);
+          onComplete();
         };
         request.onsuccess = (ev: any) => {
           ev.target.result.close();
@@ -194,6 +202,7 @@ export default class ClientDB {
         };
         request.onupgradeneeded = function(ev) {
           db.deleteObjectStore(storeName);
+          onComplete();
         };
       });
     });
@@ -202,15 +211,20 @@ export default class ClientDB {
   createStore(storeName: string, keys: IKeys): Promise<any> {
     var _ = this;
     return new Promise((resolve, reject) => {
-      let existStoreInfo = _.options.stores.find(
-        store => store.name === storeName
-      );
-
+      // let existStoreInfo = _.options.stores.find(
+      //   store => store.name === storeName
+      // );
       _.open((db, onComplete) => {
         var request = indexedDB.open(db.name, db.version + 1);
         this.request = request;
         request.onerror = function(ev) {
           reject(request.error);
+          onComplete();
+        };
+
+        request.onblocked = ev => {
+          db.close();
+          console.log("Request blocked");
         };
 
         request.onsuccess = (ev: any) => {
@@ -219,18 +233,22 @@ export default class ClientDB {
             storeName,
             this.open.bind(this)
           );
+          _.options.version = ev.target.result.version;
           resolve();
           onComplete();
         };
 
         request.onupgradeneeded = function(ev) {
-          let objStore = db.createObjectStore(storeName, {
-            keyPath: existStoreInfo.primaryKey || "_id"
+          let objStore = request.result.createObjectStore(storeName, {
+            keyPath: "_id"
           });
 
-          Object.keys(keys).forEach((key: string) => {
-            objStore.createIndex(key, key, { unique: keys[key].unique });
-          });
+          if (keys) {
+            Object.keys(keys).forEach((key: string) => {
+              objStore.createIndex(key, key, { unique: keys[key].unique });
+            });
+          }
+          onComplete();
         };
       });
     });
@@ -239,7 +257,6 @@ export default class ClientDB {
   // Update store indexes
   updateKeys = (storeName: string, keys: IKeys): Promise<any> => {
     var _ = this;
-    
     return new Promise((resolve, reject) => {
       var request = indexedDB.open(_.options.name, _.options.version + 1);
       _.request = request;
@@ -250,24 +267,24 @@ export default class ClientDB {
 
       request.onblocked = ev => {
         console.warn("Operation is blocked");
-        if (_.db) {
-          _.db.close();
-        }
       };
 
       request.onsuccess = (ev: any) => {
-        this.options.version = ev.target.result.version;
+        var version = ev.target.result.version;
+        this.options.version = version;
+        resolve({ version });
         ev.target.result.close();
-        resolve();
       };
 
       request.onupgradeneeded = function(ev: any) {
-        let objStore = ev.target.transaction.objectStore(storeName);
+        var transaction = ev.target.transaction;
+        let objStore = transaction.objectStore(storeName);
         if (!objStore) {
           reject({
             message: `Collection ${storeName} not exists, use ".createStore(storeName, keys)" instead`
           });
         }
+
         let currentIndexes = Array.from(objStore.indexNames);
         currentIndexes.forEach((prop: any) => {
           if (!keys[prop]) {
@@ -326,8 +343,7 @@ export default class ClientDB {
   };
 
   onupgradeneeded = (ev: any) => {
-    let db = ev.target.result;
-
+    let db = this.request.result;
     let newKeys = this.options.stores;
     let oldKeys: string[] = Array.from(db.objectStoreNames);
     if (db.version === 1) {
@@ -364,6 +380,10 @@ export default class ClientDB {
         }
       });
     }
+
+    db.onversionchange = () => {
+      db.close();
+    };
   };
 
   /**

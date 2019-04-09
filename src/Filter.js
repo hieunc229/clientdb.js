@@ -37,7 +37,7 @@ class Filter {
                     cursor.continue();
                 }
                 else {
-                    resolve(results);
+                    reject(results);
                 }
             };
         });
@@ -81,48 +81,36 @@ class Filter {
         return this;
     }
     run() {
-        let _vars = this;
+        let _ = this;
         return new Promise((resolve, reject) => {
-            let completedTransaction = 0, maxTransaction = _vars.queries.length;
-            let results = [];
-            let errors = [];
-            function transactionComplete() {
-                var seen = new Array(results.length);
-                var items = new Array(results.length);
-                var uniqueCount = 0;
-                results.forEach(item => {
-                    if (seen.indexOf(item._id) == -1) {
-                        items[uniqueCount] = item;
-                        seen[uniqueCount++] = item.key;
-                    }
-                });
-                items.splice(uniqueCount);
-                resolve({ items, errors });
-            }
-            function transactionSuccess(result) {
-                if (Array.isArray(result.items)) {
-                    results = results.concat(result.items);
-                }
-                else {
-                    results.push(result.items);
-                }
-                completedTransaction++;
-                if (completedTransaction === maxTransaction) {
-                    transactionComplete();
-                }
-            }
-            function transactionError(err) {
-                completedTransaction++;
-                errors.push(err);
-                if (completedTransaction === maxTransaction) {
-                    transactionComplete();
-                }
-            }
-            this.openDB((db) => {
-                let objectStore = db
-                    .transaction(_vars.collection, "readonly")
-                    .objectStore(_vars.collection);
-                _vars.queries.forEach(q => {
+            this.openDB((db, onComplete) => {
+                let results = [];
+                let errors = [];
+                let transaction = db.transaction(_.collection, "readonly");
+                transaction.oncomplete = ev => {
+                    var seen = new Array(results.length);
+                    var items = new Array(results.length);
+                    var uniqueCount = 0;
+                    results.forEach(item => {
+                        if (seen.indexOf(item._id) == -1) {
+                            items[uniqueCount] = item;
+                            seen[uniqueCount++] = item.key;
+                        }
+                    });
+                    items.splice(uniqueCount);
+                    resolve({ items, errors });
+                    onComplete();
+                };
+                transaction.onerror = ev => {
+                    reject(errors);
+                    onComplete();
+                };
+                transaction.onabort = ev => {
+                    console.error("Transaction aborted");
+                    onComplete();
+                };
+                let objectStore = transaction.objectStore(_.collection);
+                _.queries.forEach(q => {
                     var keyRange;
                     if (q.eq) {
                         keyRange = IDBKeyRange.only(q.eq);
@@ -146,11 +134,17 @@ class Filter {
                         debugger;
                         throw Error(`Unable to parse ${q}`);
                     }
-                    _vars
-                        ._openCursor(q.property, objectStore, keyRange)
-                        .then(rs => transactionSuccess(rs))
+                    _._openCursor(q.property, objectStore, keyRange)
+                        .then(result => {
+                        if (Array.isArray(result.items)) {
+                            results = results.concat(result.items);
+                        }
+                        else {
+                            results.push(result.items);
+                        }
+                    })
                         .catch(error => {
-                        transactionError({
+                        errors.push({
                             property: q.property,
                             message: error.message
                         });

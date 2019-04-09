@@ -3,11 +3,11 @@ declare type IFilter = {
     queries: {
         [key: string]: any;
     };
-    openDB: (callback: (db: IDBDatabase) => void) => void;
+    openDB: (callback: (db: IDBDatabase, onComplete: Function) => void) => void;
     collection: string;
 };
 export default class Filter {
-    openDB: (callback: (db: IDBDatabase) => any) => any;
+    openDB: (callback: (db: IDBDatabase, onComplete: Function) => any) => any;
     queries: Array<IObjectQuery>;
     m_max: number;
     m_page: number;
